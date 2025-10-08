@@ -1017,6 +1017,12 @@
                         const tsId=$('#timesheet_id').val();
                         if(!tsId){ alert('Timesheet tidak valid.'); return; }
 
+                    <!--    const sameStart = $('#timesheet_original_start_date').val() === $('#timesheet_start_date').val();-->
+                    <!--    const sameEnd   = $('#timesheet_original_end_date').val() === $('#timesheet_end_date').val();-->
+                    <!--    const sameDesc  = ($('#timesheet_description').val().trim() === (window._original_desc||'').trim());-->
+                    <!--    if(sameStart && sameEnd && sameDesc){-->
+                    <!--      if(!confirm('Tidak ada perubahan. Tetap kirim?')) return;-->
+                    <!--    }-->
 
                         const fd = new FormData($('#timesheetForm')[0]);
                         fd.append('csrf_token', $('input[name="csrf_token"]').val()||'');
@@ -2179,8 +2185,8 @@
                       t-att-data-is-head="1 if is_head else 0"
                       t-att-data-is-head-engineer="1 if is_head else 0"
                       t-att-data-is-engineer="1 if is_engineer else 0"
-                      t-att-data-is-delivery="1 if is_delivery_support else 0"
-                      t-att-data-form-readonly-all="1 if portal_task_form_readonly_all else 0">
+                      t-att-data-form-readonly-all="1 if portal_task_form_readonly_all else 0"
+                      t-att-data-task-state="task.z_project_task_state or ''">
                     t-attf-action="/portal/tasks/#{task.id}"
                     method="post">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>

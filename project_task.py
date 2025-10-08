@@ -124,14 +124,14 @@ class PortalProjectControllers(http.Controller):
         group_name = group_rec.name if group_rec else ''
 
         name_map = {
-            'Projects: Administrator':    'project_admin',
-            'Projects: Project Manager':  'project_manager',
-            'Projects: Head':             'project_head',
-            'Projects: Staff':            'project_engineer',
-            'Projects: Staff Engineer':   'project_engineer',
-            'Projects: Staff Support':    'project_delivery_support',
-            'Projects: Readonly':         'project_readonly',
-            'Projects: Head Engineer':    'project_head',
+            'Projects: Administrator': 'project_admin',
+            'Projects: Project Manager': 'project_manager',
+            'Projects: Head': 'project_head',
+            'Projects: Staff': 'project_engineer',
+            'Projects: Staff Engineer': 'project_engineer',
+            'Projects: Staff Support': 'project_delivery_support',
+            'Projects: Readonly': 'project_readonly',
+            'Projects: Head Engineer': 'project_head',
             'Projects: Delivery Support': 'project_delivery_support',
         }
         ga = name_map.get(group_name)
@@ -207,7 +207,8 @@ class PortalProjectControllers(http.Controller):
             'can_delete_timesheet': can_approve_timesheet and not is_readonly,
 
             # Engineer/Delivery/Readonly dibatasi melihat timesheet sendiri,
-            'restrict_timesheet_to_self': (is_engineer or is_delivery or is_readonly) and not (is_admin or is_pm or is_head),
+            'restrict_timesheet_to_self': (is_engineer or is_delivery or is_readonly) and not (
+                        is_admin or is_pm or is_head),
             'show_tab_invoice_plan': (is_admin or is_pm or is_head or is_delivery or is_readonly or is_internal_super),
             'can_edit_invoice_plan': (is_admin or is_pm) and not is_readonly,
 
@@ -591,18 +592,19 @@ class PortalProjectControllers(http.Controller):
                 if pj:
                     vals['project_id'] = pj
 
-            head_ids = form.getlist('z_head_assignes_ids')
-            member_ids = form.getlist('z_member_assignes_ids')
-            if head_ids is not None:
+            if 'z_head_assignes_ids' in form:
+                head_ids = form.getlist('z_head_assignes_ids')
                 vals['z_head_assignes_ids'] = [(6, 0, [int(x) for x in head_ids if x])]
-            if member_ids is not None:
+            if 'z_member_assignes_ids' in form:
+                member_ids = form.getlist('z_member_assignes_ids')
                 vals['z_member_assignes_ids'] = [(6, 0, [int(x) for x in member_ids if x])]
-
+            if 'tag_ids' in form:
+                tag_ids = form.getlist('tag_ids')
+                vals['tag_ids'] = [(6, 0, [int(x) for x in tag_ids if x])]
             if 'z_planned_start_date' in form:
                 vals['z_planned_start_date'] = form.get('z_planned_start_date') or False
             if 'z_planned_end_date' in form:
                 vals['z_planned_end_date'] = form.get('z_planned_end_date') or False
-
             if 'z_bobot_entry' in form:
                 new_entry = clamp01(sf(form.get('z_bobot_entry')))
                 vals['z_bobot_entry'] = new_entry
@@ -611,19 +613,16 @@ class PortalProjectControllers(http.Controller):
                     vals['z_bobot'] = (new_entry / parent_entry * 100.0) if parent_entry else 0.0
                 else:
                     vals['z_bobot'] = new_entry
-
             if 'z_quality_entry' in form and t.z_project_task_state == 'done':
                 vals['z_quality_entry'] = clamp01(sf(form.get('z_quality_entry')))
             if 'z_progress_project_entry' in form and getattr(t, 'z_end_task_ok', False):
                 vals['z_progress_project_entry'] = clamp01(sf(form.get('z_progress_project_entry')))
-
             if 'z_technology_id' in form:
                 vals['z_technology_id'] = si(form.get('z_technology_id')) or False
             if 'z_severity_id' in form:
                 vals['z_severity_id'] = si(form.get('z_severity_id')) or False
             if 'z_regional_id' in form:
                 vals['z_regional_id'] = si(form.get('z_regional_id')) or False
-
             if 'description' in form:
                 raw_desc = form.get('description') or ''
                 vals['description'] = raw_desc.replace('\r\n', '\n').replace('\n', '<br/>')
@@ -672,58 +671,11 @@ class PortalProjectControllers(http.Controller):
                 for x in ['project_id']:
                     vals.pop(x, None)
                 if task_ids:
-                    task_ids.with_context(from_portal=True).write(vals)
+                    task_ids.with_context(from_portal=True, skip_auto_actions=True).write(vals)
                 suffix = 'view_type=form' if view_type == 'form' else 'mode=edit'
                 return request.redirect(f'/portal/tasks/{task_id}?{suffix}&success=Data berhasil disimpan')
 
-        # WORKFLOW ACTION
-        # if request.httprequest.method == 'POST' and task_id and kw.get('function') and kw.get('_workflow'):
-        #     t = Task.browse(task_id).exists()
-        #     if not t:
-        #         return request.redirect('/portal/tasks?error=Task not found')
-        #     action = kw.get('function')
-        #     try:
-        #         if action == 'confirm':
-        #             state = t.z_project_task_state or 'new'
-        #             is_pm = flags.get('is_pm')
-        #             is_admin = flags.get('is_admin')
-        #             is_head_engineer = flags.get('is_head_engineer')
-        #             if state in ('new', 'in_progress'):
-        #                 if not flags['can_submit_task']:
-        #                     raise Exception("Not allowed to submit")
-        #             elif state == 'approved1':
-        #                 if not (is_head_engineer or is_pm or is_admin):
-        #                     raise Exception("Not allowed to approve")
-        #             elif state == 'approved2':
-        #                 if not (is_pm or is_admin):
-        #                     raise Exception("Not allowed to approve to Done")
-        #             t.action_confirm()
-        #         elif action == 'reject':
-        #             state = t.z_project_task_state or 'new'
-        #             is_pm = flags.get('is_pm')
-        #             is_admin = flags.get('is_admin')
-        #             is_head_engineer = flags.get('is_head_engineer')
-        #             allowed = False
-        #             if state == 'approved1' and (is_head_engineer or is_pm or is_admin):
-        #                 allowed = True
-        #             elif state in ('in_progress', 'approved2') and (is_pm or is_admin):
-        #                 allowed = True
-        #             if not allowed:
-        #                 raise Exception("Not allowed to reject")
-        #             reason = kw.get('reason', '').strip()
-        #             if reason:
-        #                 t.write({'z_reason_reject_description': reason})
-        #             t.action_reject()
-        #         else:
-        #             raise Exception("Unsupported action")
-        #         suffix = 'view_type=form' if view_type == 'form' else 'mode=edit'
-        #         return request.redirect(f'/portal/tasks/{t.id}?{suffix}&success=Action done')
-        #     except Exception as e:
-        #         suffix = 'view_type=form' if view_type == 'form' else 'mode=edit'
-        #         return request.redirect(f'/portal/tasks/{t.id}?{suffix}&error={tools.html_escape(str(e))}')
-
         # WORKFLOW ACTION (REVISED)
-        # if request.httprequest.method == 'POST' and task_id and kw.get('_workflow'):
         if request.httprequest.method == 'POST' and task_id and kw.get('_workflow') and not kw.get('mode'):
             t = Task.browse(task_id).exists()
             if not t:
@@ -731,13 +683,6 @@ class PortalProjectControllers(http.Controller):
 
             # Default ke 'confirm' bila function tidak dikirim
             action = (kw.get('function') or 'confirm').strip()
-
-            # t = Task.browse(task_id).exists()
-            # if not t:
-            #     return request.redirect('/portal/tasks?error=Task not found')
-            #
-            # # Default ke 'confirm' bila function tidak dikirim
-            # action = (kw.get('function') or 'confirm').strip()
 
             try:
                 state = t.z_project_task_state or 'new'
@@ -1062,6 +1007,7 @@ class PortalProjectControllers(http.Controller):
             )
 
             portal_task_form_readonly_all = (
+                    flags.get('is_readonly_user') or
                     flags.get('is_engineer') or
                     (flags.get('is_head_engineer') and (t.z_project_task_state in ('approved1', 'approved2', 'done')))
             )
@@ -2473,13 +2419,15 @@ class PortalProjectControllers(http.Controller):
         try:
             flags = self._role_flags()
             if not flags['can_update_task']:
-                return Response(json.dumps({'success': False, 'error': 'Tidak diizinkan'}),content_type='application/json')
+                return Response(json.dumps({'success': False, 'error': 'Tidak diizinkan'}),
+                                content_type='application/json')
 
             task = request.env['project.task'].sudo().browse(task_id).exists()
             if not task:
-                return Response(json.dumps({'success': False, 'error': 'Task tidak ditemukan'}),content_type='application/json')
+                return Response(json.dumps({'success': False, 'error': 'Task tidak ditemukan'}),
+                                content_type='application/json')
 
             task.action_bobot_calc_rate()
             return Response(json.dumps({'success': True}), content_type='application/json')
         except Exception as e:
-            return Response(json.dumps({'success': False, 'error': str(e)}),content_type='application/json')
+            return Response(json.dumps({'success': False, 'error': str(e)}), content_type='application/json')
