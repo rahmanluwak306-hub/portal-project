@@ -471,54 +471,55 @@
                       }
 
                       // Others Mode: atur field umum; TIDAK menyentuh maintenance-only; TIDAK menyembunyikan master-select; TIDAK memaksa free-text
-                      function toggleOthersMode(){
-                        const dropdownVal = ($('#z_type_non_project_select').val() || '');
-                        const isOthers = (dropdownVal === 'others') || !!window._isOthersProject;
+                        function toggleOthersMode(){
+                          const dropdownVal = ($('#z_type_non_project_select').val() || '');
+                          const isOthers = (dropdownVal === 'others') || !!window._isOthersProject;
 
-                        const $plannedStart = $('input[name="z_planned_start_date"]');
-                        const $plannedEnd   = $('input[name="z_planned_end_date"]');
+                          const $plannedStart = $('input[name="z_planned_start_date"]');
+                          const $plannedEnd   = $('input[name="z_planned_end_date"]');
 
-                        // Sembunyikan field umum saat Others (master-select TETAP tampil)
-                        const hideSelectors = [
-                          // Assignees
-                          'select[name="z_head_assignes_ids"]',
-                          'select[name="z_member_assignes_ids"]',
-                          // Tags
-                          'select[name="tag_ids"]',
-                          // Dates & metrics & numeric fields
-                          'input[name="z_planned_start_date"]',
-                          'input[name="z_planned_end_date"]',
-                          'input[name="z_actual_start_date"]',
-                          'input[name="z_actual_end_date"]',
-                          'input[name="z_bobot_entry"]',
-                          'input[name="z_mandays_budget_entry"]',
-                          'input[name="z_actual_budget_mandays"]',
-                          'input[name="z_progress_project"]',
-                          'input[name="z_progress_project_entry"]',
-                          'input[name="z_quality_entry"]'
-                          // Catatan: maintenance-only (tech/severity/regional) DIKELOLA oleh applyProjectTypeHiding(), jangan disentuh di sini
-                        ];
-                        hideSelectors.forEach(sel=>{
-                          const $blk = $(sel).closest('.mb-3');
-                          if(!$blk.length) return;
-                          if(isOthers){ $blk.hide(); } else { $blk.show(); }
-                        });
+                          // Daftar selector kontrol (bukan wrapper .mb-3)
+                          const ctrls = [
+                            'select[name="z_head_assignes_ids"]',
+                            'select[name="z_member_assignes_ids"]',
+                            'select[name="tag_ids"]',
+                            'input[name="z_planned_start_date"]',
+                            'input[name="z_planned_end_date"]',
+                            'input[name="z_actual_start_date"]',
+                            'input[name="z_actual_end_date"]',
+                            'input[name="z_bobot_entry"]',
+                            'input[name="z_mandays_budget_entry"]',
+                            'input[name="z_actual_budget_mandays"]',
+                            'input[name="z_progress_project"]',
+                            'input[name="z_progress_project_entry"]',
+                            'input[name="z_quality_entry"]'
+                          ];
+                          ctrls.forEach(sel=>{
+                            const $el = $(sel);
+                            const $blk = $el.closest('.mb-3');
+                            if(!$blk.length) return;
+                            if(isOthers){
+                              $blk.hide();
+                              $el.prop('disabled', true);            // penting: cegah terkirim
+                              if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
+                            }else{
+                              $blk.show();
+                              $el.prop('disabled', false);           // aktifkan kembali
+                              if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
+                            }
+                          });
 
-                        // JANGAN memaksa free-text untuk Others — biarkan user memilih
-                        // (hapus logika auto-centang sebelumnya)
+                          // Required untuk planned dates hanya non-others
+                          if(isOthers){
+                            $plannedStart.removeAttr('required');
+                            $plannedEnd.removeAttr('required');
+                          }else{
+                            if($plannedStart.data('required')) $plannedStart.attr('required', true);
+                            if($plannedEnd.data('required'))   $plannedEnd.attr('required', true);
+                          }
 
-                        // Planned dates required hanya untuk non-others
-                        if(isOthers){
-                          $plannedStart.removeAttr('required');
-                          $plannedEnd.removeAttr('required');
-                        }else{
-                          if($plannedStart.data('required')) $plannedStart.attr('required', true);
-                          if($plannedEnd.data('required'))   $plannedEnd.attr('required', true);
+                          toggleCustomerVisibility(isOthers);
                         }
-
-                        // Customer tampil hanya untuk NON-others
-                        toggleCustomerVisibility(isOthers);
-                      }
 
                       // Toggle Master Task (select vs free-text)
                       function toggleMasterCreate(scope){
@@ -817,99 +818,26 @@
                     reformatAllDateSpans();
 
 
-                    // 6) MAIN SCRIPT: Lock field sesuai role/status (tambahkan di bawah init bindings)
-                    // Perketat lock fields: perhitungkan flag readonly-all dari server
-                    <!--function applyRoleFieldLocks(){-->
-                    <!--          const $form = $('#edit_task_form');-->
-                    <!--          if(!$form.length) return;-->
-
-                    <!--          const isEngineer     = ($form.data('is-engineer')===1 || $form.data('is-engineer')==='1');-->
-                    <!--          const isHeadEngineer = ($form.data('is-head-engineer')===1 || $form.data('is-head-engineer')==='1');-->
-                    <!--          const isPM           = ($form.data('is-pm')===1 || $form.data('is-pm')==='1');-->
-                    <!--          const isAdmin        = ($form.data('is-admin')===1 || $form.data('is-admin')==='1');-->
-                    <!--          const state          = String($form.data('task-state')||'');-->
-                    <!--          const isROAll        = ($form.data('form-readonly-all')===1 || $form.data('form-readonly-all')==='1');-->
-
-                    <!--          function disableAll(){-->
-                    <!--            $form.find('input,select,textarea,button[type="submit"]').each(function(){-->
-                    <!--              const $el = $(this);-->
-                    <!--              if(this.type==='hidden') return;-->
-                    <!--              // Kecualikan tombol timer & Request Timesheet saja-->
-                    <!--              if($el.is('#btnTimeStart,#btnTimeStop,#btnTimePause,#btnRequestTimesheet')) return;-->
-                    <!--              $el.prop('disabled', true).attr('readonly', true);-->
-                    <!--              // Sinkron select2-->
-                    <!--              if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');-->
-                    <!--            });-->
-                    <!--            // Sembunyikan tombol bobot untuk non-PM/non-Admin-->
-                    <!--            if(!(isPM || isAdmin)){-->
-                    <!--              $('.btn-sync-bobot,.btn-calculate-bobot').prop('disabled', true).addClass('disabled').hide();-->
-                    <!--            }-->
-                    <!--            // Engineer tidak boleh buat subtask-->
-                    <!--            if(isEngineer){-->
-                    <!--              $('.btn-new-subtask').hide();-->
-                    <!--            }-->
-                    <!--          }-->
-                    <!--          function enableSelector(sel){-->
-                    <!--            $form.find(sel).each(function(){-->
-                    <!--              $(this).prop('disabled', false).removeAttr('readonly');-->
-                    <!--              if($(this).hasClass('select2-hidden-accessible')) $(this).trigger('change.select2');-->
-                    <!--            });-->
-                    <!--          }-->
-
-                    <!--          // FULL READONLY (Engineer atau form-readonly-all)-->
-                    <!--          if(isEngineer || isROAll){-->
-                    <!--            // Head Engineer: pengecualian hanya untuk edit member saat new/in_progress-->
-                    <!--            if(isHeadEngineer && !['approved1','approved2','done'].includes(state)){-->
-                    <!--              disableAll();-->
-                    <!--              enableSelector('select[name="z_member_assignes_ids"]');-->
-                    <!--            }else{-->
-                    <!--              disableAll();-->
-                    <!--            }-->
-                    <!--            return;-->
-                    <!--          }-->
-
-                    <!--          // Head Engineer: hanya Member saat new/in_progress-->
-                    <!--          if(isHeadEngineer){-->
-                    <!--            if(['approved1','approved2','done'].includes(state)){-->
-                    <!--              disableAll();-->
-                    <!--            }else{-->
-                    <!--              disableAll();-->
-                    <!--              enableSelector('select[name="z_member_assignes_ids"]');-->
-                    <!--            }-->
-                    <!--          }-->
-                    <!--        }-->
-                    <!--        // Panggil setelah DOM siap (sudah ada di file ini)-->
-                    <!--        applyRoleFieldLocks();-->
-
-
-                      function applyRoleFieldLocks(){
-                          const $form = $('#edit_task_form');
-                          if(!$form.length) return;
-
-                          const isEngineer     = ($form.data('is-engineer')===1 || $form.data('is-engineer')==='1');
-                          const isHeadEngineer = ($form.data('is-head-engineer')===1 || $form.data('is-head-engineer')==='1');
-                          const isPM           = ($form.data('is-pm')===1 || $form.data('is-pm')==='1');
-                          const isAdmin        = ($form.data('is-admin')===1 || $form.data('is-admin')==='1');
-                          const state          = String($form.data('task-state')||'');
-                          const isROAll        = ($form.data('form-readonly-all')===1 || $form.data('form-readonly-all')==='1');
+                        function applyRoleFieldLocks(){
+                            const $form = $('#edit_task_form');
+                            const isHead = ($form.data('is-head') === 1 || $form.data('is-head') === '1')|| ($form.data('is-head-engineer') === 1 || $form.data('is-head-engineer') === '1'); // fallback
+                            const isEngineer = ($form.data('is-engineer') === 1 || $form.data('is-engineer') === '1');
+                            const isPM = ($form.data('is-pm') === 1 || $form.data('is-pm') === '1');
+                            const isAdmin = ($form.data('is-admin') === 1 || $form.data('is-admin') === '1');
+                            const state   = String($form.data('task-state')||'');
+                             const isROAll = ($form.data('form-readonly-all')===1 || $form.data('form-readonly-all')==='1');
 
                           function disableAll(){
                             $form.find('input,select,textarea,button[type="submit"]').each(function(){
                               const $el = $(this);
                               if(this.type==='hidden') return;
-                              // Jangan kunci tombol di action-toolbar (timer, submit/approve/reject)
-                              if($el.closest('.action-toolbar').length) return;
-                              // Timer controls juga jangan dikunci
+                              if($el.closest('.action-toolbar').length) return; // tombol action tetap aktif
                               if($el.is('#btnTimeStart,#btnTimeStop,#btnTimePause,#btnRequestTimesheet')) return;
                               $el.prop('disabled', true).attr('readonly', true);
                               if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
                             });
-                            // Sembunyikan tombol sync bobot (bila ada)
                             $('.btn-sync-bobot').prop('disabled', true).addClass('disabled').hide();
-                            // Engineer tidak boleh buat subtask
-                            if(isEngineer){
-                              $('.btn-new-subtask').hide();
-                            }
+                            if(isEngineer){ $('.btn-new-subtask').hide(); }
                           }
                           function enableSelector(sel){
                             $form.find(sel).each(function(){
@@ -918,25 +846,24 @@
                             });
                           }
 
-                          // Engineer atau form readonly-all: kunci semua (kecuali toolbar/timer)
+                          // Readonly-all atau Engineer => kunci semua (kecuali toolbar/timer)
                           if(isEngineer || isROAll){
                             disableAll();
                             return;
                           }
 
-                          // Head Engineer TANPA PM/Admin: boleh edit Member + Description saat new/in_progress
-                          if(isHeadEngineer && !(isPM || isAdmin)){
+                          // Head (tanpa PM/Admin): boleh edit Member + Description saat new/in_progress
+                          if(isHead && !(isPM || isAdmin)){
                             disableAll();
                             if(!['approved1','approved2','done'].includes(state)){
                               enableSelector('select[name="z_member_assignes_ids"]');
                               enableSelector('textarea[name="description"]');
-                              // Pastikan tombol Save aktif
                               $('button[type="submit"][form="edit_task_form"]').prop('disabled', false).removeAttr('readonly');
                             }
                             return;
                           }
 
-                          // PM/Admin: bebas (tanpa tindakan khusus)
+                          // PM/Admin: bebas
                         }
                         applyRoleFieldLocks();
 
@@ -1090,12 +1017,6 @@
                         const tsId=$('#timesheet_id').val();
                         if(!tsId){ alert('Timesheet tidak valid.'); return; }
 
-                    <!--    const sameStart = $('#timesheet_original_start_date').val() === $('#timesheet_start_date').val();-->
-                    <!--    const sameEnd   = $('#timesheet_original_end_date').val() === $('#timesheet_end_date').val();-->
-                    <!--    const sameDesc  = ($('#timesheet_description').val().trim() === (window._original_desc||'').trim());-->
-                    <!--    if(sameStart && sameEnd && sameDesc){-->
-                    <!--      if(!confirm('Tidak ada perubahan. Tetap kirim?')) return;-->
-                    <!--    }-->
 
                         const fd = new FormData($('#timesheetForm')[0]);
                         fd.append('csrf_token', $('input[name="csrf_token"]').val()||'');
@@ -1245,31 +1166,28 @@
                       });
 
                       // ========== Tambahan: Intercept Submit → Auto Stop (Engineer, Maintenance) ==========
-                          let pendingConfirmForm = null;
-    $(document).on('submit', 'form.workflow-form', function(e){
-      const $editForm = $('#edit_task_form');
-      if(!$editForm.length) return;
+                      let pendingConfirmForm = null;
+                      $(document).on('submit', 'form:has(input[name="function"][value="confirm"])', function(e){
+                        const $editForm = $('#edit_task_form');
+                        if(!$editForm.length) return; // bukan halaman edit task
 
-      if($(this).find('input[name="function"][value="reject"]').length){
-        return;
-      }
+                        // Deteksi role & jenis task dari data-* pada form
+                        const isEngineer    = ($editForm.data('is-engineer') === 1 || $editForm.data('is-engineer') === '1');
+                        const isMaintenance = ($editForm.data('is-maintenance') === 1 || $editForm.data('is-maintenance') === '1');
 
-      const $timerBadge = $('#runningTimerBadge');
-      const isEngineer    = ($editForm.data('is-engineer') === 1 || $editForm.data('is-engineer') === '1');
-      const isMaintenance = ($editForm.data('is-maintenance') === 1 || $editForm.data('is-maintenance') === '1');
+                        // Deteksi timer berjalan dari badge
+                        const badgeVisible  = ($timerBadge.length && !$timerBadge.hasClass('d-none'));
+                        const pausedAttr    = $timerBadge.data('paused');
+                        const pausedNow     = (pausedAttr === true || pausedAttr === 'true');
+                        const timerRunning  = badgeVisible && !pausedNow;
 
-      const badgeVisible  = ($timerBadge.length && !$timerBadge.hasClass('d-none'));
-      const pausedAttr    = $timerBadge.data('paused');
-      const pausedNow     = (pausedAttr === true || $timerBadge.data('paused') === 'true');
-      const timerRunning  = badgeVisible && !pausedNow;
-
-      if(isEngineer && isMaintenance && timerRunning){
-        e.preventDefault();
-        pendingConfirmForm = this;
-        $('#timerStopModal').modal('show');
-        return false;
-      }
-    });
+                        if(isEngineer && isMaintenance && timerRunning){
+                          e.preventDefault();
+                          pendingConfirmForm = this;
+                          $('#timerStopModal').modal('show'); // buka modal stop agar user isi deskripsi
+                          return false;
+                        }
+                      });
 
                       $('#confirmStopBtn').off('click').on('click', function(){
                         const taskId=$(this).data('task-id');
@@ -1330,29 +1248,13 @@
                         });
                       });
 
-                      $(document).on('submit', '#edit_task_form', function(){
-      const $f = $(this);
-
-      $f.find('select[name="z_head_assignes_ids"], select[name="z_member_assignes_ids"], select[name="tag_ids"]')
-        .each(function(){
-          $(this).prop('disabled', false).removeAttr('readonly');
-          if($(this).hasClass('select2-hidden-accessible')) $(this).trigger('change.select2');
-        });
-
-      $f.find('.action-toolbar form input[name="function"], .action-toolbar form input[name="_workflow"]')
-        .each(function(){
-          $(this).prop('disabled', true).attr('data-disabled-by','edit-form');
-        });
-
-      // Optional save_only flag:
-      // if(!$f.find('input[name="save_only"]').length){
-      //   $('<input type="hidden" name="save_only" value="1">').appendTo($f);
-      // }
-    });
-
-    $('#confirmStopBtn').off('click').on('click', function(){
-      // gunakan handler stop timer yang sudah ada; setelah sukses submit pendingConfirmForm jika ada
-    });
+                       $(document).on('submit', '#edit_task_form', function(){
+                        $(this)
+                          .find('.action-toolbar form input[name="function"], .action-toolbar form input[name="_workflow"]')
+                          .each(function(){
+                            $(this).prop('disabled', true).attr('data-disabled-by','edit-form');
+                          });
+                      });
 
                       // Section header toggle + persist (tetap)
                       $(document).on('click','.ts-sec-header',function(e){
@@ -2272,17 +2174,15 @@
             <!-- ================== MODE EDIT ================== -->
             <t t-if="kw.get('mode') == 'edit' and task and task.z_type_non_project != 'others'">
                 <form id="edit_task_form"
-                      t-att-data-is-engineer="is_engineer and 1 or 0"
-                      t-att-data-is-support="is_support and 1 or 0"
-                      t-att-data-is-head="0"
-                      t-att-data-is-pm="is_pm and 1 or 0"
-                      t-att-data-is-head-engineer="is_head_engineer and 1 or 0"
-                      t-att-data-is-admin="is_admin and 1 or 0"
-                      t-att-data-is-maintenance="task.z_is_maintenance and 1 or 0"
-                      t-att-data-task-state="task.z_project_task_state or ''"
-                      t-att-data-form-readonly-all="portal_task_form_readonly_all and 1 or 0"
-                      t-attf-action="/portal/tasks/#{task.id}"
-                      method="post">
+                      t-att-data-is-admin="1 if is_admin else 0"
+                      t-att-data-is-pm="1 if is_pm else 0"
+                      t-att-data-is-head="1 if is_head else 0"
+                      t-att-data-is-head-engineer="1 if is_head else 0"
+                      t-att-data-is-engineer="1 if is_engineer else 0"
+                      t-att-data-is-delivery="1 if is_delivery_support else 0"
+                      t-att-data-form-readonly-all="1 if portal_task_form_readonly_all else 0">
+                    t-attf-action="/portal/tasks/#{task.id}"
+                    method="post">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input type="hidden" name="mode" value="edit"/>
                     <input type="hidden" name="partner_id_hidden" t-att-value="task.partner_id.id or ''"/>
@@ -2402,60 +2302,11 @@
                         </t>
 
                         <!-- Submit (in_progress) -->
-                        <!--                        <t t-if="task.z_project_task_state == 'in_progress' and can_submit_task and not active_timer_running">-->
-                        <!--                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">-->
-                        <!--                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>-->
-                        <!--                                <input type="hidden" name="_workflow" value="1"/>-->
-                        <!--&lt;!&ndash;                                <input type="hidden" name="function" value="confirm"/>&ndash;&gt;-->
-                        <!--                                <button type="submit" class="btn btn-primary action-btn">-->
-                        <!--                                    <i class="fa fa-check me-1"></i>Submit-->
-                        <!--                                </button>-->
-                        <!--                            </form>-->
-                        <!--                        </t>-->
-
-                        <!--                        &lt;!&ndash; Approve/Reject approved1 &ndash;&gt;-->
-                        <!--                        <t t-if="task.z_project_task_state == 'approved1' and (is_head_engineer or is_pm or is_admin)">-->
-                        <!--                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block me-1">-->
-                        <!--                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>-->
-                        <!--                                <input type="hidden" name="_workflow" value="1"/>-->
-                        <!--&lt;!&ndash;                                <input type="hidden" name="function" value="confirm"/>&ndash;&gt;-->
-                        <!--                                <button type="submit" class="btn btn-primary action-btn">-->
-                        <!--                                    <i class="fa fa-check me-1"></i>Approve-->
-                        <!--                                </button>-->
-                        <!--                            </form>-->
-                        <!--                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">-->
-                        <!--                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>-->
-                        <!--                                <input type="hidden" name="_workflow" value="1"/>-->
-                        <!--                                <input type="hidden" name="function" value="reject"/>-->
-                        <!--                                <button type="submit" class="btn btn-primary action-btn">-->
-                        <!--                                    <i class="fa fa-times me-1"></i>Reject-->
-                        <!--                                </button>-->
-                        <!--                            </form>-->
-                        <!--                        </t>-->
-
-                        <!--                        &lt;!&ndash; Done/Reject approved2 &ndash;&gt;-->
-                        <!--                        <t t-if="task.z_project_task_state == 'approved2' and can_approve_task">-->
-                        <!--                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block me-1">-->
-                        <!--                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>-->
-                        <!--                                <input type="hidden" name="_workflow" value="1"/>-->
-                        <!--&lt;!&ndash;                                <input type="hidden" name="function" value="confirm"/>&ndash;&gt;-->
-                        <!--                                <button type="submit" class="btn btn-primary action-btn">Done-->
-                        <!--                                </button>-->
-                        <!--                            </form>-->
-                        <!--                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">-->
-                        <!--                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>-->
-                        <!--                                <input type="hidden" name="_workflow" value="1"/>-->
-                        <!--                                <input type="hidden" name="function" value="reject"/>-->
-                        <!--                                <button type="submit" class="btn btn-primary action-btn">-->
-                        <!--                                    <i class="fa fa-times me-1"></i>Reject-->
-                        <!--                                </button>-->
-                        <!--                            </form>-->
-                        <!--                        </t>-->
                         <t t-if="task.z_project_task_state == 'in_progress' and can_submit_task and not active_timer_running">
-                            <form t-attf-action="/portal/task/#{task.id}" method="post"
-                                  class="d-inline-block workflow-form">
+                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <input type="hidden" name="_workflow" value="1"/>
+                                <!--                                <input type="hidden" name="function" value="confirm"/>-->
                                 <button type="submit" class="btn btn-primary action-btn">
                                     <i class="fa fa-check me-1"></i>Submit
                                 </button>
@@ -2464,16 +2315,15 @@
 
                         <!-- Approve/Reject approved1 -->
                         <t t-if="task.z_project_task_state == 'approved1' and (is_head_engineer or is_pm or is_admin)">
-                            <form t-attf-action="/portal/task/#{task.id}" method="post"
-                                  class="d-inline-block me-1 workflow-form">
+                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block me-1">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <input type="hidden" name="_workflow" value="1"/>
+                                <!--                                <input type="hidden" name="function" value="confirm"/>-->
                                 <button type="submit" class="btn btn-primary action-btn">
                                     <i class="fa fa-check me-1"></i>Approve
                                 </button>
                             </form>
-                            <form t-attf-action="/portal/task/#{task.id}" method="post"
-                                  class="d-inline-block workflow-form">
+                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <input type="hidden" name="_workflow" value="1"/>
                                 <input type="hidden" name="function" value="reject"/>
@@ -2485,14 +2335,14 @@
 
                         <!-- Done/Reject approved2 -->
                         <t t-if="task.z_project_task_state == 'approved2' and can_approve_task">
-                            <form t-attf-action="/portal/task/#{task.id}" method="post"
-                                  class="d-inline-block me-1 workflow-form">
+                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block me-1">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <input type="hidden" name="_workflow" value="1"/>
-                                <button type="submit" class="btn btn-primary action-btn">Done</button>
+                                <!--                                <input type="hidden" name="function" value="confirm"/>-->
+                                <button type="submit" class="btn btn-primary action-btn">Done
+                                </button>
                             </form>
-                            <form t-attf-action="/portal/task/#{task.id}" method="post"
-                                  class="d-inline-block workflow-form">
+                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <input type="hidden" name="_workflow" value="1"/>
                                 <input type="hidden" name="function" value="reject"/>

@@ -114,7 +114,7 @@ class PortalProjectControllers(http.Controller):
 
     # ---------------- ROLE FLAGS (UPDATED) ----------------
     def _role_flags(self):
-        cache_key = '_z_portal_role_flags_v11b'
+        cache_key = '_z_portal_role_flags_v12_unified'
         if hasattr(request, cache_key):
             return getattr(request, cache_key)
 
@@ -124,57 +124,55 @@ class PortalProjectControllers(http.Controller):
         group_name = group_rec.name if group_rec else ''
 
         name_map = {
-            'Projects: Administrator': 'project_admin',
-            'Projects: Project Manager': 'project_manager',
-            'Projects: Head': 'project_head_engineer',
-            'Projects: Head Engineer': 'project_head_engineer',
-            'Projects: Engineer': 'project_engineer',
+            'Projects: Administrator':    'project_admin',
+            'Projects: Project Manager':  'project_manager',
+            'Projects: Head':             'project_head',
+            'Projects: Staff':            'project_engineer',
+            'Projects: Staff Engineer':   'project_engineer',
+            'Projects: Staff Support':    'project_delivery_support',
+            'Projects: Readonly':         'project_readonly',
+            'Projects: Head Engineer':    'project_head',
             'Projects: Delivery Support': 'project_delivery_support',
-            'Projects: Readonly': 'project_readonly',
-            'Projects: Staff': 'project_engineer',
-            'Projects: Delivery Support (Old?)': 'project_delivery_support',
-            'Projects: Readonly (Old?)': 'project_readonly',
         }
         ga = name_map.get(group_name)
 
         if not ga and group_rec:
-            xmlid_map = {
-                '_project_manager': 'project_manager',
-                '_lead': 'project_head_engineer',
-                '_head_engineer': 'project_head_engineer',
-                '_user': 'project_engineer',
-                '_readonly': 'project_delivery_support',
-            }
             try:
                 xmlid_full = group_rec.get_external_id().get(group_rec.id)
-                if xmlid_full:
-                    for suffix, code in xmlid_map.items():
-                        if xmlid_full.endswith(suffix):
-                            ga = code
-                            break
             except Exception:
-                pass
+                xmlid_full = None
+            if xmlid_full:
+                suffix_map = {
+                    '_project_manager': 'project_manager',
+                    '_lead': 'project_head',
+                    '_head_engineer': 'project_head',
+                    '_user': 'project_engineer',
+                    '_readonly': 'project_delivery_support',
+                }
+                for suf, code in suffix_map.items():
+                    if xmlid_full.endswith(suf):
+                        ga = code
+                        break
 
         if is_internal_super and not ga:
             ga = 'project_admin'
 
-        is_admin = ga == 'project_admin'
-        is_pm = ga == 'project_manager'
-        is_head = False
-        is_head_engineer = ga == 'project_head_engineer'
-        is_engineer = ga == 'project_engineer'
-        is_delivery = ga == 'project_delivery_support'
-        is_readonly = ga == 'project_readonly'
+        is_admin = (ga == 'project_admin')
+        is_pm = (ga == 'project_manager')
+        is_head = (ga == 'project_head')
+        is_engineer = (ga == 'project_engineer')
+        is_delivery = (ga == 'project_delivery_support')
+        is_readonly = (ga == 'project_readonly')
 
-        # Timesheet approval - Admin/PM/Head Engineer
-        can_approve_timesheet = (is_admin or is_pm or is_head_engineer)
+        is_head_engineer = is_head
 
-        # Task workflow permissions
-        can_submit_task = (is_admin or is_pm or is_head_engineer or is_engineer)
+        # Permissions
+        can_approve_timesheet = (is_admin or is_pm or is_head)
+        can_submit_task = (is_admin or is_pm or is_head or is_engineer)
         can_approve_task = (is_admin or is_pm)
-        can_reject_task = (is_admin or is_pm or is_head_engineer)
+        can_reject_task = (is_admin or is_pm or is_head)
         can_finish_task = (is_admin or is_pm)
-        can_update_task = (is_admin or is_pm or is_head_engineer) and not is_readonly
+        can_update_task = (is_admin or is_pm or is_head) and not is_readonly
         can_view_project_page = (is_admin or is_pm)
 
         flags = {
@@ -183,10 +181,13 @@ class PortalProjectControllers(http.Controller):
 
             'is_admin': is_admin,
             'is_pm': (is_pm or is_admin),
+
             'is_head': is_head,
             'is_head_engineer': is_head_engineer,
+
             'is_engineer': is_engineer,
             'is_delivery_support': is_delivery,
+
             'is_readonly_user': is_readonly,
 
             'is_support': is_delivery or is_readonly,
@@ -199,22 +200,21 @@ class PortalProjectControllers(http.Controller):
             'can_approve_task': can_approve_task and not is_readonly,
             'can_reject_task': can_reject_task and not is_readonly,
             'can_finish_task': can_finish_task and not is_readonly,
-            'can_create_subtask': (is_admin or is_pm or is_head_engineer) and not is_readonly,
+            'can_create_subtask': (is_admin or is_pm or is_head) and not is_readonly,
             'can_delete_subtask': (is_admin or is_pm) and not is_readonly,
 
             'can_approve_timesheet': can_approve_timesheet,
             'can_delete_timesheet': can_approve_timesheet and not is_readonly,
-            'restrict_timesheet_to_self': (is_engineer or is_delivery or is_readonly) and not (
-                    is_admin or is_pm or is_head_engineer),
 
-            'show_tab_invoice_plan': (
-                        is_admin or is_pm or is_head_engineer or is_delivery or is_readonly or is_internal_super),
+            # Engineer/Delivery/Readonly dibatasi melihat timesheet sendiri,
+            'restrict_timesheet_to_self': (is_engineer or is_delivery or is_readonly) and not (is_admin or is_pm or is_head),
+            'show_tab_invoice_plan': (is_admin or is_pm or is_head or is_delivery or is_readonly or is_internal_super),
             'can_edit_invoice_plan': (is_admin or is_pm) and not is_readonly,
 
-            'show_tab_description': (is_admin or is_pm or is_head_engineer) and not is_readonly,
-            'show_tab_subtasks': (is_admin or is_pm or is_head_engineer) and not is_readonly,
-            'show_metrics': (is_admin or is_pm or is_head_engineer) and not is_readonly,
-            'show_quality': (is_admin or is_pm or is_head_engineer) and not is_readonly,
+            'show_tab_description': (is_admin or is_pm or is_head) and not is_readonly,
+            'show_tab_subtasks': (is_admin or is_pm or is_head) and not is_readonly,
+            'show_metrics': (is_admin or is_pm or is_head) and not is_readonly,
+            'show_quality': (is_admin or is_pm or is_head) and not is_readonly,
 
             'can_view_project_page': can_view_project_page,
         }
@@ -2473,16 +2473,13 @@ class PortalProjectControllers(http.Controller):
         try:
             flags = self._role_flags()
             if not flags['can_update_task']:
-                return Response(json.dumps({'success': False, 'error': 'Tidak diizinkan'}),
-                                content_type='application/json')
+                return Response(json.dumps({'success': False, 'error': 'Tidak diizinkan'}),content_type='application/json')
 
             task = request.env['project.task'].sudo().browse(task_id).exists()
             if not task:
-                return Response(json.dumps({'success': False, 'error': 'Task tidak ditemukan'}),
-                                content_type='application/json')
+                return Response(json.dumps({'success': False, 'error': 'Task tidak ditemukan'}),content_type='application/json')
 
             task.action_bobot_calc_rate()
             return Response(json.dumps({'success': True}), content_type='application/json')
         except Exception as e:
-            return Response(json.dumps({'success': False, 'error': str(e)}),
-                            content_type='application/json')
+            return Response(json.dumps({'success': False, 'error': str(e)}),content_type='application/json')
