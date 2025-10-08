@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- [Override Project Task Form (Timesheet Grid)] -->
+        <record id="timesheet_grid.project_task_view_form" model="ir.ui.view">
+            <field name="name">project.task.view.form.inherit.sale.timesheet.enterprise</field>
+            <field name="model">project.task</field>
+            <field name="inherit_id" ref="project_enterprise.project_task_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='stage_id']" position='before'>
+                    <field name="company_id" invisible="1"/>
+                    <field name="display_timesheet_timer" invisible="1"/>
+                    <field name="timer_pause" invisible="1" />
+                    <field name="display_timer_start_primary" invisible="1"/>
+                    <field name="display_timer_start_secondary" invisible="1"/>
+                    <field name="display_timer_stop" invisible="1"/>
+                    <field name="display_timer_pause" invisible="1"/>
+                    <field name="display_timer_resume" invisible="1"/>
+                    <button class="btn-primary" name="action_timer_start" type="object" string="Start" data-hotkey="z"
+                        invisible="1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <button class="btn-secondary" name="action_timer_start" type="object" string="Start" data-hotkey="z"
+                        invisible="1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <button class="btn-primary o_fsm_stop" name="action_timer_stop" type="object" string="Stop" data-hotkey="z"
+                        invisible="1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <button class="btn-secondary" name="action_timer_pause" type="object" string="Pause" data-hotkey="w"
+                        invisible="1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <button class="btn-secondary" name="action_timer_resume" type="object" string="Resume" data-hotkey="w"
+                        invisible="1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="timer_start" invisible="1" widget="timer_start_field" class="align-self-center me-auto ms-2 h2" groups="hr_timesheet.group_hr_timesheet_user"/>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="z_account_analytic_line_list" model="ir.ui.view">
+            <field name="name">account.analytic.line.list</field>
+            <field name="model">account.analytic.line</field>
+            <field name="priority">0</field>
+            <field name="arch" type="xml">
+                <list string="Timesheet Activities" default_order="id" decoration-muted="readonly_timesheet == True">
+                    <field name="readonly_timesheet" column_invisible="True"/>
+                    <field name="z_timesheet_start_date"/>
+                    <field name="z_timesheet_end_date"/>
+                    <field name="user_id" optional="hide"/>
+                    <field name="employee_id" width="120px" widget="many2one_avatar_employee" context="{'active_test': True}"/>
+                    <field name="name" width="210px"/>
+                    <field name="unit_amount" string="Time Spent (Hours)" width="150px" widget="timesheet_uom" readonly="readonly_timesheet"/>
+                    <field name="project_id" optional="show"/>
+                    <field name="task_id" optional="show"/>
+                    <field name="company_id" column_invisible="True"/>
+                    <field name="z_state" widget="badge"/>
+                    <button name="action_view" string="Edit" type="object" class="oe_highlight"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="z_account_analytic_line_form" model="ir.ui.view">
+            <field name="name">account.analytic.line.form</field>
+            <field name="model">account.analytic.line</field>
+            <field name="priority">0</field>
+            <field name="arch" type="xml">
+                <form  string="Timesheet Activities">
+                    <header>
+                        <button name="action_approve" string="Approve" invisible="z_state in ('approved','reject')" type="object" class="oe_highlight"/>
+                        <button name="action_reject" string="Reject" invisible="z_state != 'waiting_approval'" type="object" class="oe_highlight"/>
+                        <field name="z_state" widget="statusbar" statusbar_visible="draft,waiting_approval,approved"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <separator string="Date Detail"/>
+                                <field name="date" force_save="1" readonly="z_state == 'approved'" invisible="1"/>
+                                <field name="z_timesheet_start_date" force_save="1" readonly="z_state == 'approved'"/>
+                                <field name="z_timesheet_end_date" force_save="1" readonly="z_state == 'approved'"/>
+                                <field name="unit_amount" string="Time Spent (Hours)" force_save="1" readonly="1" width="150px" widget="timesheet_uom"/>
+                            </group>
+                            <group>
+                                <separator string="Others Detail"/>
+                                <field name="employee_id" force_save="1" readonly="z_state == 'approved'" required="1" widget="many2one_avatar_employee" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                <field name="project_id" force_save="1" readonly="z_state == 'approved'" required="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                <field name="task_id" force_save="1" readonly="z_state == 'approved'" required="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                <field name="company_id" required="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                            </group>
+                            <separator string="Description"/>
+                            <field name="name" force_save="1" readonly="z_state == 'approved'" placeholder="e.g description ..."/>
+                        </group>
+                        <notebook>
+                            <page string="Detail">
+                                <field name="z_line_ids" force_save="1" readonly="not id">
+                                    <list editable="bottom">
+                                        <field name="z_timesheet_id" force_save="1" readonly="z_state == 'approved'" optional="hide" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                        <field name="z_current_start_date" force_save="1" readonly="z_state == 'approved'" required="1" width="130px"/>
+                                        <field name="z_current_end_date" force_save="1" readonly="z_state == 'approved'" required="1" width="130px"/>
+                                        <field name="z_employee_id" force_save="1" readonly="z_state == 'approved'" required="1" width="130px" widget="many2one_avatar_employee" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                        <field name="z_current_time_spent" force_save="1" readonly="z_state == 'approved'" required="1" widget="timesheet_uom" width="100px"/>
+                                        <field name="z_name" force_save="1" readonly="z_state == 'approved'" required="1" width="200px"/>
+                                        <field name="z_state" width="120px" widget="badge"/>
+                                        <button name="action_approve" string="Approved" invisible="z_state in ('approved','reject')" type="object" class="oe_highlight"/>
+                                        <button name="action_reject" string="Reject" invisible="z_state != 'waiting_approval'" type="object" class="oe_highlight"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- [Override Project Task (Timesheet)] -->
+        <record id="hr_timesheet.view_task_form2_inherited" model="ir.ui.view">
+            <field name="name">project.task.form.inherited</field>
+            <field name="model">project.task</field>
+            <field name="inherit_id" ref="project.view_task_form2"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='child_ids']/list/field[@name='company_id']" position="after">
+                    <field name="allocated_hours" widget="timesheet_uom_no_toggle" sum="Total Allocated Time" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="effective_hours" widget="timesheet_uom" sum="Time Spent" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="subtask_effective_hours" widget="timesheet_uom" sum="Sub-tasks Time Spent" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="total_hours_spent" widget="timesheet_uom" sum="Total Time Spent" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="remaining_hours" widget="timesheet_uom" sum="Time Remaining" optional="hide" decoration-danger="progress &gt;= 1" decoration-warning="progress &gt;= 0.8 and progress &lt; 1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="progress" widget="project_task_progressbar" optional="hide" options="{'overflow_class': 'bg-danger'}" groups="hr_timesheet.group_hr_timesheet_user"/>
+                </xpath>
+                <xpath expr="//t[@name='warning_section']" position="inside">
+                    <div class="alert alert-warning text-center mb-2" role="alert" invisible="analytic_account_active or not allow_timesheets" groups="hr_timesheet.group_hr_timesheet_user">
+                        You cannot log timesheets on this project since it is linked to an inactive analytic account.<br/> Please change this account, or reactivate the current one to timesheet on the project.
+                    </div> 
+                </xpath>
+                <xpath expr="//notebook/page[@name='description_page']" position="after">
+                    <field name="allow_timesheets" invisible="1"/>
+                    <t groups="hr_timesheet.group_hr_timesheet_user">
+                        <field name="analytic_account_active" invisible="1"/>
+                    </t>
+                    <page string="Timesheets" name="page_timesheets" id="timesheets_tab" invisible="not allow_timesheets" groups="hr_timesheet.group_hr_timesheet_user">
+                    <field name="timesheet_ids" mode="list" readonly="1" context="{'default_project_id': project_id, 'default_name': ''}">
+                        <list string="Timesheet Activities" editable="bottom" default_order="id" decoration-muted="readonly_timesheet == True">
+                            <field name="readonly_timesheet" column_invisible="True"/>
+                            <field name="user_id" optional="hide"/>
+                            <field name="employee_id" width="120px" widget="many2one_avatar_employee" context="{'active_test': True}"/>
+                            <field name="name" width="210px"/>
+                            <field name="unit_amount" string="Time Spent (Hours)" width="150px" widget="timesheet_uom" readonly="readonly_timesheet"/>
+                            <field name="project_id" column_invisible="True"/>
+                            <field name="task_id" column_invisible="True"/>
+                            <field name="company_id" column_invisible="True"/>
+                            <field name="z_state" widget="badge"/>
+                            <button name="action_view" string="Edit" type="object" class="oe_highlight"/>
+                        </list>
+                    </field>
+                    <group invisible="not analytic_account_active">
+                        <group class="oe_subtotal_footer" name="project_hours">
+                            <span class="o_td_label float-start">
+                                <label class="fw-bold" for="effective_hours" string="Time Spent"/>
+                            </span>
+                            <field name="effective_hours" widget="timesheet_uom" nolabel="1"/>
+                            <button name="action_view_subtask_timesheet" type="object" class="ps-0 border-0 oe_inline oe_link mb-2 o_td_label float-start" invisible="subtask_effective_hours == 0.0">
+                                <span class="text-nowrap">Time Spent on Sub-tasks:</span>
+                            </button>
+                            <field name="subtask_effective_hours" class="mt-2" widget="timesheet_uom"
+                                   invisible="subtask_effective_hours == 0.0" nolabel="1"/>
+                            <span invisible="subtask_effective_hours == 0.0" class="o_td_label float-start my-1">
+                                <label class="fw-bold" for="total_hours_spent"
+                                       invisible="subtask_effective_hours == 0.0 or encode_uom_in_days"/>
+                                <label class="fw-bold" for="total_hours_spent"
+                                       invisible="subtask_effective_hours == 0.0 or not encode_uom_in_days"/>
+                            </span>
+                            <field name="total_hours_spent" widget="timesheet_uom" class="oe_subtotal_footer_separator" nolabel="1"
+                                   invisible="subtask_effective_hours == 0.0" />
+                            <span class="o_td_label float-start my-1" invisible="allocated_hours == 0.0">
+                                <label class="fw-bold" for="remaining_hours"
+                                       invisible="remaining_hours &lt; 0"/>
+                                <label class="fw-bold text-danger" for="remaining_hours"
+                                       invisible="remaining_hours &gt;= 0"/>
+                            </span>
+                            <field name="remaining_hours" widget="timesheet_uom" class="oe_subtotal_footer_separator"
+                                   invisible="allocated_hours == 0.0" nolabel="1" decoration-danger="remaining_hours &lt; 0"/>
+                        </group>
+                    </group>
+                </page>
+                </xpath>
+                <xpath expr="//field[@name='depend_on_ids']/list//field[@name='company_id']" position="after">
+                    <field name="progress" column_invisible="True" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="allocated_hours" widget="timesheet_uom_no_toggle" sum="Total Allocated Time" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="effective_hours" widget="timesheet_uom" sum="Effective Hours" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="subtask_effective_hours" widget="timesheet_uom" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="total_hours_spent" widget="timesheet_uom" optional="hide" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="remaining_hours" widget="timesheet_uom" sum="Time Remaining" optional="hide" decoration-danger="progress &gt;= 1" decoration-warning="progress &gt;= 0.8 and progress &lt; 1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="progress" widget="project_task_progressbar" optional="hide" options="{'overflow_class': 'bg-danger'}" groups="hr_timesheet.group_hr_timesheet_user"/>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- [Project Task Form Timer] -->
+        <record id="z_project_task_form_timer" model="ir.ui.view">
+            <field name="name">project.task.form.timer</field>
+            <field name="model">project.task</field>
+            <field name="arch" type="xml">
+                <form string="Timesheet">
+                    <sheet>
+                        <field name="z_description" required="1" widget="text" nolabel="1" placeholder="Describe your activity..." />
+                    </sheet>
+                    <footer>
+                        <button name="action_end_timesheet" string="Time End" type="object" class="oe_highlight" context="{'confirmTimeEnd': True}"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- [Project Task Form Inherit Project] -->
+        <record id="z_project_task_form_inherit_project" model="ir.ui.view">
+            <field name="name">project.task.list.inherit</field>
+            <field name="model">project.task</field>
+            <field name="inherit_id" ref="project.view_task_form2"/>
+            <field name="arch" type="xml">
+                <xpath expr="//header" position="inside">
+                    <button name="action_start_timesheet" string="Time Start" invisible="z_project_task_state not in ('new','in_progress') or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
+                    <button name="action_end_timesheet" string="Time Stop" invisible="z_project_task_state not in ('new','in_progress') or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
+                    <button name="action_confirm" string="Submit" invisible="z_project_task_state != 'in_progress' or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
+                    <button name="action_confirm" string="Approved" invisible="z_project_task_state != 'approved1'" type="object" class="oe_highlight"/>
+                    <button name="action_confirm" string="Done" invisible="z_project_task_state != 'approved2'" type="object" class="oe_highlight"/>
+                    <button name="action_reject" string="Rejected" invisible="z_project_task_state not in ('approved1','approved2')" type="object" class="oe_highlight"/>
+                    <button name="action_request_timesheet" string="Request Timesheet" invisible="z_project_task_state in ('approved1','approved2','done') or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
+                    <button name="action_create_subtask" string="Create Subtasks" invisible="z_project_task_state in ('approved1','approved2','done') or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
+                    <button name="action_bobot_sync" string="Bobot Sync" invisible="1" type="object" class="oe_highlight"/>
+                    <button name="action_bobot_calc_rate" string="Bobot Calc Rate" invisible="z_type_non_project" type="object" class="oe_highlight"/>
+                    <field name="z_running_duration" widget="RealtimeDatetime" invisible="not z_time_start" class="align-self-center me-auto ms-2 h2"/>
+                    <field name="z_time_start" class="align-self-center d-none me-auto ms-2 h2"/>
+                    <field name="z_project_task_state" invisible="z_type_non_project == 'others'" widget="statusbar" statusbar_visible="new,in_progress,done"/>
+                </xpath>
+                <xpath expr="//field[@name='stage_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='state']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='personal_stage_type_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//sheet/div[1]/button[4]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//sheet/div[1]" position="inside">
+                    <button class="oe_stat_button" type="object" name="action_view_tasks" icon="fa-check" invisible="z_type_non_project == 'others'">
+                        <div class="o_field_widget o_stat_info">
+                            <span class="o_stat_text">Sub-tasks</span>
+                            <span class="o_stat_value">
+                                <field name="z_subtask_count"/>
+                                (<field name="z_subtask_done_count"/>%)
+                            </span>
+                        </div>
+                    </button>
+                    <button class="oe_stat_button" type="object" name="action_view_timesheets" invisible="z_type_non_project == 'others'" icon="fa-plus-square">
+                        <div class="o_field_widget o_stat_info">
+                            <span class="o_stat_text">Timesheets</span>
+                            <span class="o_stat_value">
+                                <field name="z_timesheet_count"/>
+                                (<field name="z_timesheet_done_count"/>%)
+                            </span>
+                        </div>
+                    </button>
+                </xpath>
+                <xpath expr="//sheet/div[2]/h1/div[2]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//sheet/div[2]/h1/div[3]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//sheet/div[2]/h1" position="before">
+                    <label for="name" string="Task Code"/>
+                </xpath>
+                <xpath expr="//field[@name='name']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                    <attribute name="placeholder">e.g Task Code</attribute>
+                </xpath>
+                <!-- [left] -->
+                <xpath expr="//group/group[1]/label[1]" position="before">
+                    <field name="z_master_task_self_create_ok"/>
+                    <field name="z_master_task_id" domain="[('z_parent_id','child_of',z_parent_master_task_id)]" required="not z_master_task_self_create_ok" invisible="not parent_id or z_master_task_self_create_ok" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_master_task_id" domain="[('z_parent_id','=',False)]" required="not z_master_task_self_create_ok" invisible="parent_id or z_master_task_self_create_ok" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_master_task_free_text" required="z_master_task_self_create_ok" invisible="not z_master_task_self_create_ok"/>
+                    <field name="z_parent_master_task_id" invisible="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="partner_id" required="z_type_in_project" invisible="z_type_non_project" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                </xpath>
+                <xpath expr="//group/group[1]/label[1]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//group/group[1]/div[1]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//group/group[1]/div[1]" position="after">
+                    <field name="project_id" required="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':false}"/>
+                    <field name="z_project_name" invisible="z_type_non_project == 'others'"/>
+                </xpath>
+                <xpath expr="//field[@name='milestone_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='user_ids']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='user_ids']" position="after">
+                    <field name="z_head_assignes_ids" domain="[('id','in',z_project_teams_ids)]" widget="many2many_tags" invisible="z_type_non_project" required="z_type_in_project" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_member_assignes_ids" domain="[('id','in',z_project_teams_ids)]" widget="many2many_tags" invisible="z_type_non_project == 'others'" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_project_teams_ids" widget="many2many_tags" invisible="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                </xpath>
+                <xpath expr="//field[@name='tag_ids']" position="attributes">
+                    <attribute name="invisible">z_type_non_project == 'others'</attribute>
+                    <attribute name="options">{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='tag_ids']" position="after">
+                    <field name="z_end_task_ok" force_save="1" readonly="1"/>
+                </xpath>
+                <!-- [right] -->
+                <xpath expr="//group/group[2]/field[@name='partner_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//group/group[2]/field[@name='partner_id']" position="before">
+                    <field name="z_planned_start_date" string="Planned Date" invisible="z_type_non_project == 'others'" required="z_type_non_project != 'others'" readonly="0" widget="daterange" options='{"end_date_field": "z_planned_end_date", "always_range": "1"}'/>
+                    <field name="z_planned_end_date" invisible="1"/>
+                    <field name="z_actual_start_date" string="Actual Date" invisible="z_type_non_project == 'others'" force_save="1" readonly="1" widget="daterange" options='{"end_date_field": "z_actual_end_date", "always_range": "1"}'/>
+                    <field name="z_actual_end_date" invisible="1"/>
+                </xpath>
+                <xpath expr="//group/group[2]/label[1]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//group/group[2]/div[@id='date_deadline_and_recurring_task']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//group/group[2]" position="inside">
+                    <field name="z_mandays_budget" invisible="1"/>
+                    <field name="z_mandays_budget_entry" invisible="z_type_non_project" force_save="1" readonly="1"/>
+                    <field name="z_actual_budget_mandays" invisible="z_type_non_project"/>
+                    <field name="z_quality_calculation" invisible="z_type_non_project"/>
+                    <field name="z_quality_entry" invisible="z_type_non_project"/>
+                    <field name="z_progress_project" widget="progressbar" invisible="z_type_non_project" readonly="0"/>
+                    <field name="z_progress_project_entry" invisible="not z_end_task_ok or z_type_non_project"/>
+                    <field name="z_bobot" invisible="1"/>
+                    <field name="z_bobot_entry" invisible="z_type_non_project"/>
+                    <field name="z_group_type_project" invisible="not z_type_non_project or z_type_non_project == 'ticket'"/>
+                    <field name="z_type_in_project" invisible="1"/>
+                    <field name="z_type_non_project" invisible="not z_type_non_project or z_type_non_project == 'ticket'"/>
+                    <field name="tag_ids" widget="many2many_tags" invisible="z_type_non_project or z_type_non_project != 'others'" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                </xpath>
+                <xpath expr="//group" position="inside">
+                    <separator string="Projects Detail" invisible="z_project_type != 'maintenance'"/>
+                    <group invisible="z_project_type != 'maintenance'">
+                        <field name="z_project_type"/>
+                        <field name="z_regional_id" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    </group>
+                    <group invisible="z_project_type != 'maintenance'">
+                        <field name="z_technology_id" domain="[('id','in',z_technology_ids)]" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                        <field name="z_technology_ids" widget="many2many_tags" invisible="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                        <field name="z_severity_id" domain="[('id','in',z_severity_ids)]" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                        <field name="z_severity_ids" widget="many2many_tags" invisible="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    </group>
+                </xpath>
+                <!-- [notebook] -->
+                <xpath expr="//page[@name='page_timesheets']" position="attributes">
+                    <attribute name="invisible">z_type_non_project == 'others'</attribute>
+                </xpath>
+                <xpath expr="//page[@name='page_timesheets']//field[@name='timesheet_ids']/list/field[@name='user_id']" position="before">
+                    <field name="z_timesheet_start_date" width="130px"/>
+                    <field name="z_timesheet_end_date" width="130px"/>
+                </xpath>
+                <xpath expr="//page[@name='sub_tasks_page']" position="attributes">
+                    <attribute name="invisible">z_type_non_project == 'others'</attribute>
+                </xpath>
+                <xpath expr="//page[@name='sub_tasks_page']/field[@name='child_ids']" position="replace">
+                    <field name="child_ids"
+                        mode="list"
+                       force_save="1" readonly="1"
+                        context="{
+                            'default_project_id': project_id,
+                            'default_parent_id': id,
+                            'default_partner_id': partner_id,
+                        }">
+                        <list string="Tasks" editable="bottom">
+                            <field name="priority" widget="priority" nolabel="1" width="20px"/>
+                            <field name="name" string="Task Code"/>
+                            <field name="z_display_master_task"/>
+                            <field name="parent_id" optional="hide"/>
+                            <field name="partner_id" optional="hide"/>
+                            <field name="project_id" optional="hide"/>
+                            <field name="z_mandays_budget" optional="hide" sum="total" width="120px"/>
+                            <field name="z_mandays_budget_entry" sum="total" width="120px"/>
+                            <field name="z_actual_budget_mandays" sum="total" width="120px"/>
+                            <field name="z_progress_project" avg="total" string="Progress (%)" digits="[3,0]"/>
+                            <field name="z_bobot" optional="hide" sum="total"/>
+                            <field name="z_bobot_entry" sum="total"/>
+                            <field name="z_head_assignes_ids" widget="many2many_tags" optional="hide"/>
+                            <field name="z_member_assignes_ids" widget="many2many_tags" optional="hide"/>
+                            <field name="tag_ids" widget="many2many_tags" optional="hide"/>
+                            <field name="z_project_task_state" widget="badge" decoration-success="z_project_task_state == 'done'"/>
+                        </list>
+                    </field>
+                </xpath>
+                <xpath expr="//notebook" position="inside">
+                    <page string="Invoice Plan" invisible="z_type_non_project == 'others' or z_type_in_project == 'maintenance'">
+                        <field nolabel="1" name="z_invoice_plan_ids" options="{'always_reload':True}">
+                            <list string="Lines" editable="bottom">
+                                <field name="z_invoce_plan_id" optional="hide"/>
+                                <field name="z_number_of_invoice"/>
+                                <field name="z_name"/>
+                                <field name="z_invoice_date"/>
+                                <field name="z_amount_total"/>
+                                <field name="z_state"/>
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Attachments" invisible="1">
+                        <group>
+                            <field name="z_timer_attachment_ids" widget="many2many_binary" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- [Project Task List (view_task_tree2 ori)] -->
+        <record id="z_project_task_list" model="ir.ui.view">
+            <field name="name">project.task.list</field>
+            <field name="model">project.task</field>
+            <field name="arch" type="xml">
+                <list string="Tasks">
+                    <field name="priority" widget="priority" nolabel="1" width="20px"/>
+                    <field name="name" string="Task Code"/>
+                    <field name="z_display_master_task"/>
+                    <field name="parent_id" optional="hide"/>
+                    <field name="partner_id"/>
+                    <field name="project_id"/>
+                    <field name="z_mandays_budget" optional="hide" sum="total" width="120px"/>
+                    <field name="z_mandays_budget_entry" sum="total" width="120px"/>
+                    <field name="z_actual_budget_mandays" sum="total" width="120px"/>
+                    <field name="z_progress_project" avg="total" string="Progress (%)"/>
+                    <field name="z_bobot" optional="hide" sum="total"/>
+                    <field name="z_bobot_entry" sum="total"/>
+                    <field name="z_head_assignes_ids" widget="many2many_tags"/>
+                    <field name="z_member_assignes_ids" widget="many2many_tags" optional="hide"/>
+                    <field name="tag_ids" widget="many2many_tags" optional="hide"/>
+                    <field name="z_project_task_state" widget="badge" decoration-success="z_project_task_state == 'done'"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- [Override (Used)] -->
+        <record id="project.action_view_all_task" model="ir.actions.act_window">
+            <field name="name">Tasks</field>
+            <field name="path">all-tasks</field>
+            <field name="res_model">project.task</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+            <field name="view_mode">list,kanban,form,calendar,pivot,graph,activity</field>
+            <field name="search_view_id" ref="project.view_task_search_form"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No tasks found. Let's create one!</p>
+                <p>Keep track of the progress of your tasks from creation to completion. <br/> Collaborate efficiently by chatting in real-time or via email.</p>
+            </field>
+        </record>
+
+        <record id="project.action_view_my_task" model="ir.actions.act_window">
+            <field name="name">My Tasks</field>
+            <field name="res_model">project.task</field>
+            <field name="path">my-tasks</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+            <field name="view_mode">list,kanban,form,calendar,pivot,graph,activity</field>
+            <field name="search_view_id" ref="project.view_task_search_form"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No tasks found. Let's create one!</p>
+                <p>Keep track of the progress of your tasks from creation to completion. <br/> Collaborate efficiently by chatting in real-time or via email.</p>
+            </field>
+        </record>
+
+        <record id="project.act_project_project_2_project_task_all" model="ir.actions.act_window">
+            <field name="name">Tasks</field>
+            <field name="path">tasks</field>
+            <field name="res_model">project.task</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+            <field name="view_mode">list,kanban,form,calendar,pivot,graph,activity</field>
+            <field name="search_view_id" ref="project.view_task_search_form"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No tasks found. Let's create one!</p>
+                <p>Keep track of the progress of your tasks from creation to completion. <br/> Collaborate efficiently by chatting in real-time or via email.</p>
+            </field>
+        </record>
+
+        <record id="project.action_view_task_from_milestone" model="ir.actions.act_window">
+            <field name="name">Tasks</field>
+            <field name="res_model">project.task</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+            <field name="view_mode">list,kanban,form,calendar,pivot,graph,activity</field>
+            <field name="search_view_id" ref="project.view_task_search_form"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No tasks found. Let's create one!</p>
+                <p>Keep track of the progress of your tasks from creation to completion. <br/> Collaborate efficiently by chatting in real-time or via email.</p>
+            </field>
+        </record>
+
+        <record id="project.action_view_task" model="ir.actions.act_window">
+            <field name="name">Tasks</field>
+            <field name="res_model">project.task</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+            <field name="view_mode">list,kanban,form,calendar,pivot,graph,activity</field>
+            <field name="search_view_id" ref="project.view_task_search_form"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No tasks found. Let's create one!</p>
+                <p>Keep track of the progress of your tasks from creation to completion. <br/> Collaborate efficiently by chatting in real-time or via email.</p>
+            </field>
+        </record>
+
+        <record id="project.project_task_action_sub_task" model="ir.actions.act_window">
+            <field name="name">Sub-tasks</field>
+            <field name="res_model">project.task</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+            <field name="view_mode">list,kanban,form,calendar,pivot,graph,activity</field>
+            <field name="search_view_id" ref="project.view_task_search_form"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No tasks found. Let's create one!</p>
+                <p>Keep track of the progress of your tasks from creation to completion. <br/> Collaborate efficiently by chatting in real-time or via email.</p>
+            </field>
+        </record>
+
+        <!-- [Override (Used)] -->
+        <record id="project.open_view_all_task_list_tree" model="ir.actions.act_window.view">
+            <field name="sequence" eval="0"/>
+            <field name="view_mode">list</field>
+            <field name="act_window_id" ref="project.action_view_all_task"/>
+            <field name="view_id" ref="z_project.z_project_task_list"/>
+        </record>
+
+        <record id="project.dblc_proj" model="ir.actions.act_window">
+            <field name="res_model">project.task</field>
+            <field name="name">Project's tasks</field>
+            <field name="view_mode">list,form,calendar,graph,kanban</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+        </record>
+
+        <record id="project.project_task_action_from_partner_tree_view" model="ir.actions.act_window.view">
+            <field name="view_mode">list</field>
+            <field name="act_window_id" ref="project.project_task_action_from_partner"/>
+            <field name="view_id" ref="z_project.z_project_task_list"/>
+        </record>
+
+        <record id="project.open_view_my_task_list_tree" model="ir.actions.act_window.view">
+            <field name="sequence" eval="20"/>
+            <field name="view_mode">list</field>
+            <field name="view_id" ref="z_project.z_project_task_list"/>
+            <field name="act_window_id" ref="project.action_view_my_task"/>
+        </record>
+
+        <record id="project.open_view_task_list_tree" model="ir.actions.act_window.view">
+            <field name="sequence" eval="1"/>
+            <field name="view_mode">list</field>
+            <field name="view_id" ref="z_project.z_project_task_list"/>
+            <field name="act_window_id" ref="project.action_view_task"/>
+        </record>
+
+        <record id="project.project_task_tree_action_view" model="ir.actions.act_window.view">
+            <field name="sequence" eval="20"/>
+            <field name="view_mode">list</field>
+            <field name="view_id" ref="z_project.z_project_task_list"/>
+            <field name="act_window_id" ref="project.act_project_project_2_project_task_all"/>
+        </record>
+
+    </data>
+</odoo>

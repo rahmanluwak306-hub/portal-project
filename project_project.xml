@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- [Project Project Form Inherit Project] -->
+        <record id="z_project_project_form_inherit_project" model="ir.ui.view">
+            <field name="name">project.project.form.inherit.project</field>
+            <field name="model">project.project</field>
+            <field name="inherit_id" ref="project.edit_project"/>
+            <field name="arch" type="xml">
+                <xpath expr="//header" position="inside">
+                    <button name="action_set_to_draft" string="Set to Draft" invisible="z_project_status != 'failed'" type="object" class="oe_highlight"/>
+                    <button name="action_confirm" string="Confirm" invisible="z_project_status in ('failed','closed','solved') or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
+                    <button name="action_failed" string="Failed" invisible="z_project_status == 'failed' or z_type_non_project" type="object" class="oe_highlight"/>
+                    <button name="action_create_subtask" string="Create Tasks" type="object" class="oe_highlight"/>
+                    <button name="send_reminder_mail_project" string="Send Mail" type="object" class="oe_highlight"/>
+                    <field name="z_project_status" widget="statusbar" invisible="z_type_non_project in ('others','ticket')" statusbar_visible="new,waiting,confirm,full_approve,closed"/>
+                    <field name="z_project_status" widget="statusbar" invisible="z_type_non_project != 'ticket'" statusbar_visible="new,in_progress,solved"/>
+                </xpath>
+                <xpath expr="//div[@class='oe_title']/h1" position="before">
+                    <label for="name" string="Project Code"/>
+                </xpath>
+                <xpath expr="//button[@name='action_view_tasks']" position="replace">
+                    <button class="oe_stat_button" type="object" name="action_view_tasks" icon="fa-check">
+                        <div class="o_field_widget o_stat_info">
+                            <span class="o_stat_text">Tasks</span>
+                            <span class="o_stat_value">
+                                <field name="task_count"/>
+                                (<field name="z_progress_project"/>%)
+                            </span>
+                        </div>
+                    </button>
+                </xpath>
+                <xpath expr="//button[@name='project_update_all_action']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='label_tasks']" position="replace">
+                    <field name="label_tasks" string="Name of The Projects" placeholder="e.g. Label"/>
+                </xpath>
+                <xpath expr="//field[@name='partner_id']" position="attributes">
+                    <attribute name="invisible">z_type_non_project</attribute>
+                    <attribute name="required">not z_type_non_project</attribute>
+                    <attribute name="domain">[('is_company','=',True)]</attribute>
+                    <attribute name="options">{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='partner_id']" position="after">
+                    <field name="z_group_type_project" required="1"/>
+                    <field name="z_type_in_project" required="z_group_type_project == 'project'" invisible="not z_group_type_project or z_group_type_project == 'non_project'"/>
+                    <field name="z_type_non_project" required="z_group_type_project == 'non_project'" invisible="not z_group_type_project or z_group_type_project == 'project' or z_type_non_project == 'others'"/>
+                    <field name="z_project_manager_ids" domain="[('id','in',z_project_teams_ids)]" invisible="z_type_non_project" widget="many2many_tags" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_project_teams_ids" invisible="1" widget="many2many_tags" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                </xpath>
+                <xpath expr="//field[@name='tag_ids']" position="attributes">
+                    <attribute name="invisible">z_type_non_project == 'others'</attribute>
+                    <attribute name="options">{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}</attribute>
+                </xpath>
+                <xpath expr="//group/group[1]/field[@name='company_id']" position="attributes">
+                    <attribute name="required">1</attribute>
+                    <attribute name="options">{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='user_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='date_start']" position="attributes">
+                    <attribute name="required">z_type_non_project != 'others'</attribute>
+                    <attribute name="invisible">z_type_non_project == 'others'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='date']" position="attributes">
+                    <attribute name="required">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='date']" position="after">
+                    <field name="z_actual_start_date" string="Actual Date" invisible="z_type_non_project == 'others'" readonly="1" widget="daterange" options='{"end_date_field": "z_actual_end_date", "always_range": "1"}'/>
+                    <field name="z_actual_end_date" invisible="1"/>
+                    <field name="allocated_hours" widget="timesheet_uom_no_toggle" invisible="1" groups="hr_timesheet.group_hr_timesheet_user"/>
+                    <field name="z_mandays_budget" invisible="z_group_type_project != 'project'" force_save="1" readonly="0"/>
+                    <field name="z_actual_budget_mandays" invisible="z_group_type_project != 'project'" force_save="1" readonly="1"/>
+                    <field name="z_value_project" invisible="z_group_type_project != 'project'"/>
+                    <field name="z_progress_project" invisible="z_group_type_project != 'project'" widget="progressbar" readonly="0"/>
+                    <field name="z_task_ids" widget="many2many_tags" invisible="1" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <separator string="Tickets Detail" invisible="z_type_non_project != 'ticket'"/>
+                    <field name="z_requestor_id" invisible="z_type_non_project != 'ticket'" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_request_date" invisible="z_type_non_project != 'ticket'"/>
+                    <field name="z_ticket_admin_id" invisible="z_type_non_project != 'ticket'" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_type_non_project" required="z_group_type_project == 'non_project'" invisible="not z_group_type_project or z_group_type_project == 'project' or z_type_non_project != 'others'"/>
+                    <field name="z_project_manager_ids" invisible="1" widget="many2many_tags" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="tag_ids" invisible="z_type_non_project != 'others'" widget="many2many_tags" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                    <field name="z_integrate_ok" force_save="1" readonly="1"/>
+                </xpath>
+                <xpath expr="//notebook" position="inside">
+                    <page string="Project Teams" invisible="z_group_type_project != 'project'">
+                        <field nolabel="1" name="z_project_teams2_ids" options="{'always_reload':True}">
+                            <list string="Lines" editable="bottom">
+                                <field name="z_sequence" widget="handle"/>
+                                <field name="z_project_teams_employee_id" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                <field name="z_project_teams_job_id" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                <field name="z_project_teams_job2_id" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                                <field name="z_project_teams_job2_bobot" optional="hide"/>
+                                <field name="z_project_teams_bobot" sum="total"/>
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Program" invisible="z_group_type_project != 'project' or z_type_in_project != 'delivery'">
+                        <field nolabel="1" name="z_program_name_ids" options="{'always_reload':True}">
+                            <list string="Lines" editable="bottom">
+                                <field name="z_project_id" optional="hide"/>
+                                <field name="z_name"/>
+                                <field name="write_uid" optional="hide" string="Updated By"/>
+                                <field name="write_date" optional="hide" string="Updated Date"/>
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Invoice Plan" invisible="z_group_type_project != 'project' or z_type_in_project != 'maintenance'">
+                        <field nolabel="1" name="z_invoice_plan_ids" options="{'always_reload':True}">
+                            <list string="Lines" editable="bottom">
+                                <field name="z_project_id" optional="hide"/>
+                                <field name="z_name"/>
+                                <field name="z_description"/>
+                                <field name="z_date"/>
+                                <field name="z_amount_total"/>
+                                <field name="z_state"/>
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Attachments" invisible="1">
+                        <group>
+                            <field name="z_attachment_ids" widget="many2many_binary" options="{'limit': 10, 'no_create': true, 'create': false, 'create_edit': false, 'no_open':true}"/>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- [Project Project Invoice Form Inherit Project] -->
+        <record id="z_project_project_invoice_form_inherit_project" model="ir.ui.view">
+            <field name="name">project.project.invoice.form.inherit.project</field>
+            <field name="model">project.project</field>
+            <field name="inherit_id" ref="hr_timesheet.project_invoice_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='allocated_hours']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- [Project Project List Inherit Project] -->
+        <record id="z_project_project_list_inherit_project" model="ir.ui.view">
+            <field name="name">project.project.list.inherit.project</field>
+            <field name="model">project.project</field>
+            <field name="inherit_id" ref="project.view_project"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='display_name']" position="attributes">
+                    <attribute name="string">Project Code</attribute>
+                    <attribute name="width">100px</attribute>
+                </xpath>
+                <xpath expr="//field[@name='display_name']" position="after">
+                    <field name="label_tasks" string="Project Name" width="100px"/>
+                    <field name="z_project_manager_ids" widget="many2many_tags"/>
+                    <field name="z_group_type_project"/>
+                    <field name="date_start" string="Planned Start Date"/>
+                    <field name="date" string="Planned End Date"/>
+                    <field name="z_actual_start_date" string="Actual Start Date"/>
+                    <field name="z_actual_end_date" string="Actual End Date"/>
+                    <field name="z_mandays_budget"/>
+                    <field name="z_actual_budget_mandays"/>
+                    <field name="z_value_project"/>
+                    <field name="z_progress_project"/>
+                </xpath>
+                <xpath expr="//field[@name='user_id']" position="attributes">
+                    <attribute name="column_invisible">true</attribute>
+                </xpath>
+                <xpath expr="//field[@name='last_update_status']" position="attributes">
+                    <attribute name="column_invisible">true</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- [Project Project Calendar] -->
+        <record id="z_project_project_calendar" model="ir.ui.view">
+            <field name="name">project.project.calendar</field>
+            <field name="model">project.project</field>
+            <field name="arch" type="xml">
+                <calendar
+                    string="Projects"
+                    date_start="date_start"
+                    date_stop="date"
+                    mode="year"
+                    scales="month,year">
+                    <field name="name"/>
+                </calendar>
+            </field>
+        </record>
+
+        <!-- [Project Project Search] -->
+        <record id="z_project_project_search" model="ir.ui.view">
+            <field name="name">project.project.search</field>
+            <field name="model">project.project</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="name"/>
+                    <field name="label_tasks"/>
+                    <field name="partner_id"/>
+                    <field name="z_group_type_project"/>
+                    <field name="z_type_in_project"/>
+                    <field name="z_type_non_project"/>
+                    <field name="z_project_manager_ids"/>
+                    <field name="date_start"/>
+                    <field name="date"/>
+                    <field name="z_actual_start_date"/>
+                    <field name="z_actual_end_date"/>
+                    <field name="z_requestor_id"/>
+                    <field name="z_ticket_admin_id"/>
+                    <field name="z_project_status"/>
+                    <filter name="filter_draft" string="New" domain="[('z_project_status','=','new')]"/>
+                    <filter name="filter_in_progress" string="In Progress" domain="[('z_project_status','=','in_progress')]"/>
+                    <filter name="filter_solved" string="Solved" domain="[('z_project_status','=','solved')]"/>
+                    <filter name="filter_closed" string="Closed" domain="[('z_project_status','=','closed')]"/>
+                    <filter name="filter_failed" string="Failed" domain="[('z_project_status','=','failed')]"/>
+                    <filter name="filter_cancel" string="Cancel" domain="[('z_project_status','=','cancel')]"/>
+                    <filter name="group_partner" string="Customer" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_group" string="Group" context="{'group_by': 'z_group_type_project'}"/>
+                    <filter name="group_progress" string="Progress" context="{'group_by': 'z_progress_project'}"/>
+                    <filter name="group_requestor" string="Requestor" context="{'group_by': 'z_requestor_id'}"/>
+                    <filter name="group_ticket_admin" string="Ticket Admin" context="{'group_by': 'z_ticket_admin_id'}"/>
+                    <filter name="group_status" string="Status" context="{'group_by': 'z_project_status'}"/>
+                </search>
+            </field>
+        </record>
+
+        <!-- [Override Project Project Action] -->
+        <record id="project.open_view_project_all" model="ir.actions.act_window">
+            <field name="name">Projects</field>
+            <field name="path">project</field>
+            <field name="res_model">project.project</field>
+            <field name="domain">[]</field>
+            <field name="context">{}</field>
+            <field name="view_mode">list,form,kanban,calendar</field>
+            <field name="view_id" ref="project.view_project"/>
+            <field name="search_view_id" ref="z_project.z_project_project_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No projects found. Let's create one!</p>
+                <p>Create projects to organize your tasks. Define a different workflow for each project.</p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record model="ir.module.category" id="module_category_portal_projects">
+            <field name="name">Portal Projects</field>
+            <field name="sequence">200</field>
+            <field name="parent_id" eval="False"/>
+        </record>
+        <record model="res.groups" id="group_portal_projects_transaction_admin">
+            <field name="name">Projects: Administrator</field>
+            <field name="category_id" ref="z_project.module_category_portal_projects"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+        </record>
+        <record model="res.groups" id="group_portal_projects_transaction_project_manager">
+            <field name="name">Projects: Project Manager</field>
+            <field name="category_id" ref="z_project.module_category_portal_projects"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+        </record>
+        <record model="res.groups" id="group_portal_projects_transaction_head">
+            <field name="name">Projects: Head</field>
+            <field name="category_id" ref="z_project.module_category_portal_projects"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+        </record>
+        <record model="res.groups" id="group_portal_projects_transaction_user">
+            <field name="name">Projects: Staff</field>
+            <field name="category_id" ref="z_project.module_category_portal_projects"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+        </record>
+        <record model="res.groups" id="group_portal_projects_transaction_support">
+            <field name="name">Projects: Staff Support</field>
+            <field name="category_id" ref="z_project.module_category_portal_projects"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+        </record>
+
+        <record model="res.groups" id="group_portal_projects_transaction_readonly">
+            <field name="name">Projects: Readonly</field>
+            <field name="category_id" ref="z_project.module_category_portal_projects"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+        </record>
+
+    </data>
+</odoo>

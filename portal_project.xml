@@ -1,0 +1,1501 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="z_project.portal_project" name="Portal Projects">
+        <t t-call="z_project.portal_layout">
+            <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+            <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"/>
+            <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"/>
+            <script>
+                const csrf_token = "<t t-esc='request.csrf_token()'/>";
+
+                // library select2 single and multiple global section
+                $('.js-example-basic-single').select2();
+                $('.js-example-basic-multiple').select2();
+
+                document.addEventListener("DOMContentLoaded", function () {
+                    const els = {
+                        action_confirm: document.getElementById("action_confirm"),
+                        action_failed: document.getElementById("action_failed"),
+                        group: document.querySelector("select[name='z_group_type_project']"),
+                        inProject: document.querySelector("select[name='z_type_in_project']"),
+                        nonProject: document.querySelector("select[name='z_type_non_project']"),
+                        projectTeamsTab: document.getElementById("projectTeams-tab")?.closest("li"),
+                        programTab: document.getElementById("programName-tab")?.closest("li"),
+                        invoiceTab: document.getElementById("invoicePlan-tab")?.closest("li"),
+                        projectTeamsBtn: document.getElementById("projectTeams-tab"),
+                        descriptionBtn: document.getElementById("description-tab"),
+                        projectTeamsPane: document.getElementById("project_teams"),
+                        descriptionPane: document.getElementById("description"),
+                        requestor: document.getElementById("z_requestor_id"),
+                        requestDate: document.getElementById("z_request_date"),
+                        ticketAdmin: document.getElementById("z_ticket_admin_id"),
+                        partner: document.getElementById("partner_id"),
+                        projectManager: document.getElementById("z_project_manager_ids"),
+                    };
+                    // Helpers
+                    const show = el => el &amp;&amp; (el.style.display = "block");
+                    const hide = el => el &amp;&amp; (el.style.display = "none");
+                    function activateDescription() {
+                        document.querySelectorAll("#myTab .nav-link").forEach(btn => btn.classList.remove("active"));
+                        document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("show", "active"));
+                        els.projectTeamsBtn?.classList.add("active");
+                        els.projectTeamsPane?.classList.add("show", "active");
+                    }
+                    function toggleTabs() {
+                        const inValue = els.inProject?.value;
+                        const nonValue = els.nonProject?.value;
+                        // reset default
+                        show(els.action_confirm);
+                        show(els.action_failed);
+                        show(els.projectTeamsTab);
+                        hide(els.programTab);
+                        hide(els.invoiceTab);
+                        hide(els.requestor);
+                        hide(els.requestDate);
+                        hide(els.ticketAdmin);
+                        show(els.partner);
+                        show(els.projectManager);
+                        // rules
+                        if (inValue === "delivery") show(els.programTab);
+                        else if (inValue === "maintenance") show(els.invoiceTab);
+                        if (nonValue) {
+                            hide(els.partner);
+                            hide(els.projectManager);
+                            hide(els.projectTeamsTab);
+                        }
+                        if (nonValue === "others") {
+                            hide(els.action_confirm);
+                            hide(els.action_failed);
+                        } else if (nonValue === "ticket") {
+                            show(els.requestor);
+                            show(els.requestDate);
+                            show(els.ticketAdmin);
+                        }
+                        activateDescription();
+                    }
+                    function resetAndToggle(target) {
+                        if (target === "group") {
+                            if (els.inProject) els.inProject.value = "";
+                            if (els.nonProject) els.nonProject.value = "";
+                        } else if (target === "nonProject") {
+                            if (els.inProject) els.inProject.value = "";
+                        }
+                        toggleTabs();
+                    }
+                    // Initial state
+                    toggleTabs();
+                    // Events
+                    els.inProject?.addEventListener("change", toggleTabs);
+                    els.group?.addEventListener("change", () => resetAndToggle("group"));
+                    els.nonProject?.addEventListener("change", () => resetAndToggle("nonProject"));
+                });
+
+                // auto hide when already selected select2 multiple
+                $(document).ready(function() {
+                    // Reusable function to set up Select2 for multiple selects
+                    function setupDynamicSelect2(selector) {
+                        const selectElement = $(selector);
+                        selectElement.select2({
+                            templateResult: function(data) {
+                                const selectedIds = selectElement.val() || [];
+                                if (selectedIds.includes(data.id)) {
+                                    return null; // Hide already selected options
+                                }
+                                return data.text;
+                            }
+                        });
+                    }
+                    // Call the dynamic function for all multiple-select fields
+                    setupDynamicSelect2('select[name="z_project_teams_ids"]');
+                    setupDynamicSelect2('select[name="z_project_manager_ids"]');
+                    setupDynamicSelect2('select[name="tag_ids"]');
+                    // Specific Logic for Project Teams
+                    const projectTeamsSelect = $('select[name="z_project_teams_ids"]');
+                    const employeeSelectionTableBody = $('#employee_selection_table tbody');
+                    // Attach specific hide/show events only to the Project Teams field
+                    projectTeamsSelect.on('select2:select', function(e) {
+                        const addedId = e.params.data.id;
+                        employeeSelectionTableBody.find('tr[data-id="' + addedId + '"]').hide();
+                    });
+                    projectTeamsSelect.on('select2:unselect', function(e) {
+                        const removedId = e.params.data.element.value;
+                        employeeSelectionTableBody.find('tr[data-id="' + removedId + '"]').show();
+                    });
+                });
+
+                // added project teams
+                document.addEventListener("DOMContentLoaded", function () {
+                    const teamForm = document.getElementById("project_project_teams_form");
+                    teamForm.addEventListener("submit", function (e) {
+                        e.preventDefault();
+                        let formData = new FormData(teamForm);
+                        fetch(teamForm.action, {
+                            method: "POST",
+                            body: formData
+                        })
+                        .then(res => {
+                            if (res.redirected) {
+                                window.location.href = res.url;
+                                return;
+                            }
+                            return res.json();
+                        })
+                        .then(data => {
+                            if (data &amp;&amp; data.success) {
+                                const addProjectTeamsModal = document.getElementById("addProjectTeamsModal");
+                                if (addProjectTeamsModal) {
+                                    addProjectTeamsModal.classList.remove("show");
+                                    addProjectTeamsModal.style.display = "none";
+                                    document.body.classList.remove("modal-open");
+                                    document.body.style.overflow = "";
+                                    document.body.style.paddingRight = "";
+                                    document.querySelectorAll(".modal-backdrop").forEach(el => el.remove());
+                                }
+                                window.location.reload();
+                            }
+                        })
+                        .catch(err => console.error("Error:", err));
+                    });
+                });
+
+                // team (deleted no refresh)
+                document.addEventListener("click", function (e) {
+                    if (e.target.closest(".delete-team-btn")) {
+                        const btn = e.target.closest(".delete-team-btn");
+                        const projectId = btn.dataset.projectId;
+                        const teamId = btn.dataset.teamId;
+                        const row = btn.closest("tr");
+                        fetch(`/portal/projects/${projectId}/teams/delete/${teamId}?model=project.project.project.teams&amp;deleted=1`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded"
+                            },
+                            body: `csrf_token=${csrf_token}`
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                row.remove();
+                            } else {
+                                alert("Failed: " + (data.error || "unknown error"));
+                            }
+                        }).catch(err => console.error("Delete error:", err));
+                    }
+                });
+
+                // click team (for updated or created data)
+                document.addEventListener("DOMContentLoaded", function () {
+                    const rows = document.querySelectorAll(".project-team-row");
+                    rows.forEach(row => {
+                        row.addEventListener("click", function (e) {
+                            if (e.target.closest(".delete-team-btn")) return;
+                            const teamId = this.dataset.id || "";
+                            const employeeId = this.dataset.employeeId || "";
+                            const jobId = this.dataset.jobId || "";
+                            const job2Id = this.dataset.job2Id || "";
+                            const bobot = this.dataset.bobot || "";
+                            const modal = document.querySelector("#addProjectTeamsModal");
+                            modal.querySelector("input[name='team_id']").value = teamId;
+                            modal.querySelector(".modal-title").textContent = "Edit: Project Teams";
+                            $(modal).find("select[name='z_project_teams_employee_id']").val(employeeId).trigger('change');
+                            $(modal).find("select[name='z_project_teams_job_id']").val(jobId).trigger('change');
+                            $(modal).find("select[name='z_project_teams_job2_id']").val(job2Id).trigger('change');
+                            const bobotInput = modal.querySelector("input[name='z_project_teams_bobot']");
+                            bobotInput.value = bobot;
+                            $(modal).modal('show');
+                        });
+                    });
+                    // "Add a line"
+                    const addButton = document.querySelector(".o_add_line_td");
+                    if (addButton) {
+                        addButton.addEventListener("click", function () {
+                            const modal = document.querySelector("#addProjectTeamsModal");
+                            modal.querySelector(".modal-title").textContent = "Add: Project Teams";
+                            modal.querySelector("input[name='team_id']").value = "";
+                            modal.querySelector("input[name='z_project_teams_bobot']").value = "";
+                            modal.querySelector("input[name='z_project_teams_bobot']").disabled = true;
+                            $(modal).find("select").val("").trigger("change");
+                        });
+                    }
+                });
+
+                // added program name
+                document.addEventListener("DOMContentLoaded", function () {
+                    const programForm = document.getElementById("project_program_name_form");
+                    programForm.addEventListener("submit", function (e) {
+                        e.preventDefault();
+                        let formData = new FormData(programForm);
+                        fetch(programForm.action, {
+                            method: "POST",
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                const programNameTableWrapper = document.querySelector("#programNameTableWrapper");
+                                const tbody = programNameTableWrapper ? programNameTableWrapper.querySelector("tbody") : null;
+                                if (!tbody) {
+                                    console.error("tbody di dalam portal_table tidak ditemukan");
+                                    return;
+                                }
+                                const newRow = document.createElement("tr");
+                                newRow.innerHTML = `
+                                    <td>${data.program_name}</td>
+                                    <td class="text-center" style="cursor: default;">
+                                        <button type="button"
+                                            class="btn btn-primary px-2 py-1 text-danger delete-program-btn"
+                                            data-project-id="${data.project_id}"
+                                            data-program-id="${data.program_id}">
+                                            <i class="fa fa-trash text-white"/>
+                                        </button>
+                                    </td>
+                                `;
+                                tbody.appendChild(newRow);
+                                const addProgramModal = document.getElementById("addProgramModal");
+                                if (addProgramModal) {
+                                    addProgramModal.classList.remove("show");
+                                    addProgramModal.style.display = "none";
+                                    document.body.classList.remove("modal-open");
+                                    document.body.style.overflow = "";
+                                    document.body.style.paddingRight = "";
+                                    document.querySelectorAll(".modal-backdrop").forEach(el => el.remove());
+                                }
+                            }
+                        }).catch(err => console.error("Error:", err));
+                    });
+                });
+
+                // program (deleted no refresh)
+                document.addEventListener("click", function (e) {
+                    if (e.target.closest(".delete-program-btn")) {
+                        const btn = e.target.closest(".delete-program-btn");
+                        const projectId = btn.dataset.projectId;
+                        const programId = btn.dataset.programId;
+                        const row = btn.closest("tr");
+                        fetch(`/portal/projects/${projectId}/program/delete/${programId}?model=project.project.program.name&amp;deleted=1`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded"
+                            },
+                            body: `csrf_token=${csrf_token}`
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                row.remove();
+                            } else {
+                                alert("Failed: " + (data.error || "unknown error"));
+                            }
+                        }).catch(err => console.error("Delete error:", err));
+                    }
+                });
+
+                document.addEventListener("DOMContentLoaded", function () {
+                    const textarea = document.querySelector(".auto-resize");
+                    function resize() {
+                        textarea.style.height = "auto";
+                        textarea.style.height = (textarea.scrollHeight) + "px";
+                    }
+                    resize();
+                    textarea.addEventListener("input", resize);
+                });
+
+                // onchange employee on modal project teams
+                document.addEventListener("DOMContentLoaded", function () {
+                    const employeeSelect = document.querySelector("select[name='z_project_teams_employee_id']");
+                    const jobSelect = document.querySelector("select[name='z_project_teams_job_id']");
+                    const job2Select = document.querySelector("select[name='z_project_teams_job2_id']");
+                    const bobotInput = document.querySelector("input[name='z_project_teams_bobot']");
+                    const projectId = employeeSelect.getAttribute("data-project-id");
+                    employeeSelect.addEventListener("change", async function () {
+                        const employeeId = this.value;
+                        if (!employeeId) return;
+                        try {
+                            const url = `/portal/projects/${projectId}?employee_id=${employeeId}&amp;method=search`;
+                            const response = await fetch(url);
+                            const data = await response.json();
+                            if (data.success) {
+                                const jobId = data.job_id;
+                                const jobBobot = data.job_bobot;
+                                if (jobId) {
+                                    jobSelect.value = jobId.toString();
+                                    if ($(jobSelect).hasClass("js-example-basic-single")) {
+                                        $(jobSelect).trigger("change.select2");
+                                    }
+                                    job2Select.value = jobId.toString();
+                                    if ($(job2Select).hasClass("js-example-basic-single")) {
+                                        $(job2Select).trigger("change.select2");
+                                    }
+                                }
+                                if (jobBobot) {
+                                    bobotInput.value = jobBobot.toString();
+                                }
+                            }
+                        } catch (error) {
+                            console.error("Error fetch API:", error);
+                        }
+                    });
+                });
+
+                // onchange job position (current) on modal project teams
+                document.addEventListener("DOMContentLoaded", function () {
+                    const jobSelect = document.querySelector("select[name='z_project_teams_job2_id']");
+                    const bobotInput = document.querySelector("input[name='z_project_teams_bobot']");
+                    const projectId = jobSelect.getAttribute("data-project-id");
+                    jobSelect.addEventListener("change", async function () {
+                        const jobId = this.value;
+                        if (!jobId) return;
+                        try {
+                            const url = `/portal/projects/${projectId}?job_id=${jobId}&amp;method=search`;
+                            const response = await fetch(url);
+                            const data = await response.json();
+                            if (data.success) {
+                                const jobBobot = data.job_bobot;
+                                if (jobBobot) {
+                                    bobotInput.value = jobBobot.toString();
+                                }
+                            }
+                        } catch (error) {
+                            console.error("Error fetch API:", error);
+                        }
+                    });
+                });
+            </script>
+            <style>
+                /* Mengubah warna disabled di modal */
+                .form-control:disabled {
+                    background-color: #f5f5f5;
+                    color: #6c757d;
+                }
+
+                /* Mengubah tampilan kontainer utama Select2 */
+                .select2-container--default .select2-selection--single {
+                    height: 35px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 5px;
+                }
+                /* Mengubah tampilan teks yang dipilih di dalam Select2 */
+                .select2-container--default .select2-selection--single .select2-selection__rendered {
+                    line-height: 28px;
+                    padding-left: 10px;
+                    padding-top: 1px;
+                }
+                /* Mengubah tampilan panah dropdown */
+                .select2-container--default .select2-selection--single .select2-selection__arrow {
+                    height: 35px;
+                    width: 30px;
+                    top: 1px;
+                }
+
+                /* multiple */
+                .select2-container .select2-selection--multiple {
+                    min-height: 35px;
+                }
+                .select2-container--default .select2-selection--multiple {
+                    height: auto !important;
+                    border-color: #dee2e6;
+                    border-radius: 5px;
+                }
+                .select2-container--default .select2-selection--multiple .select2-selection__choice {
+                    background-color: #dee2e6; /* Warna abu-abu yang Anda inginkan */
+                    color: #495057; /* Ubah warna teks agar mudah dibaca */
+                    border: 1px solid #dee2e6; /* Sesuaikan border agar seragam dengan warna latar */
+                }
+                .select2-container--default.select2-container--focus .select2-selection--multiple {
+                    border-color: #dee2e6;
+                }
+
+                /* Make modal body a flexible container */
+                .modal-body {
+                    display: flex;
+                    flex-direction: column;
+                    max-height: 80vh; /* Set a max height for the modal body */
+                    overflow-y: hidden; /* Prevent the entire modal from scrolling */
+                }
+
+                /* Ensure the table container is the only scrollable part */
+                .table-container {
+                    flex-grow: 1; /* Make it fill the remaining space */
+                    overflow-y: auto; /* Add vertical scrollbar only to this container */
+                }
+                /* Make table header sticky */
+                .table-container .sticky-top {
+                    position: sticky;
+                    top: 0;
+                    z-index: 10;
+                    background-color: white;
+                }
+
+                /* Custom scrollbar for desktop browsers */
+                .table-responsive::-webkit-scrollbar {
+                    width: 10px; /* Width of the scrollbar */
+                    height: 10px; /* Height of the scrollbar */
+                }
+                .table-responsive::-webkit-scrollbar-track {
+                    background: #f1f1f1; /* Color of the scrollbar track */
+                    border-radius: 10px;
+                }
+                .table-responsive::-webkit-scrollbar-thumb {
+                    background: #888; /* Color of the scrollbar thumb */
+                    border-radius: 10px;
+                }
+                .table-responsive::-webkit-scrollbar-thumb:hover {
+                    background: #555; /* Color when hovering over the thumb */
+                }
+
+                .limit-2-lines {
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2; /* Batasi 2 baris */
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    word-break: break-word; /* Agar kata panjang tidak meluber */
+                }
+            </style>
+            <!-- [Content] -->
+            <t t-if="view_type == 'form'">
+                <div class="o_portal_projects_header row mb-4 d-flex align-items-center">
+                    <div class="col-auto d-flex align-items-center">
+                        <a href="/portal/projects" class="btn btn-primary d-flex align-items-center me-2">
+                            <i class="fa fa-chevron-left me-2 mt-1"/>
+                            Back
+                        </a>
+                        <h3 class="mb-0">
+                            <t t-if="projects">
+                                <span t-field="projects.name"/>
+                            </t>
+                            <t t-else="">
+                                Create a New Project
+                            </t>
+                        </h3>
+                        <t t-if="projects and groups_access in ('project_admin','project_manager')">
+                            <button class="btn btn-link p-0 ms-2 mt-2" data-bs-toggle="modal" data-bs-target="#projectSettingsModal">
+                                <i class="fa fa-cog me-2"/>
+                            </button>
+                            <div class="modal fade" id="projectSettingsModal" tabindex="-1" aria-labelledby="projectSettingsModalLabel" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="settingModalLabel">Settings</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="list-group">
+                                                <form t-attf-action="/portal/projects/delete/#{projects.id}" method="post" class="list-group-item list-group-item-action">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <input type="hidden" name="deleted" t-att-value="1"/>
+                                                    <button type="submit" class="btn btn-primary px-2 py-1" title="Delete Project">
+                                                        <i class="fa fa-trash me-2"/> Delete
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                        <t t-if="groups_access in ('project_admin','project_manager')">
+                            <button type="submit" class="btn btn-link p-0 ms-2 mt-2" form="project_form" title="Save Project">
+                                <i class="fa fa-cloud-download fa-md"/>
+                            </button>
+                        </t>
+                    </div>
+                </div>
+                <hr/>
+                <!-- [Header] -->
+                <div class="d-flex mb-3 justify-content-between align-items-center">
+                    <t t-if="projects">
+                        <div class="d-flex">
+                            <t t-if="projects and projects.z_project_status == 'failed' and groups_access in ('project_admin','project_manager')">
+                                <!-- Set to Draft -->
+                                <form t-attf-action="/portal/projects/#{projects.id}" method="post" class="me-2">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="function" value="set_to_draft"/>
+                                    <button type="submit" class="btn btn-primary d-flex align-items-center">
+                                        Set to Draft
+                                    </button>
+                                </form>
+                            </t>
+                            <t t-if="projects and projects.z_project_status not in ('failed','closed') and groups_access in ('project_admin','project_manager')">
+                                <!-- Confirm -->
+                                <form id="action_confirm" t-attf-action="/portal/projects/#{projects.id}" method="post" class="me-2">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="function" value="confirm"/>
+                                    <button type="submit" class="btn btn-primary d-flex align-items-center px-3 py-2">
+                                        Confirm
+                                    </button>
+                                </form>
+                            </t>
+                            <t t-if="projects and projects.z_project_status != 'failed' and groups_access in ('project_admin','project_manager')">
+                                <!-- Cancel -->
+                                <form id="action_failed" t-attf-action="/portal/projects/#{projects.id}" method="post" class="me-2">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="function" value="failed"/>
+                                    <button type="submit" class="btn btn-primary d-flex align-items-center px-3 py-2">
+                                        Failed
+                                    </button>
+                                </form>
+                            </t>
+                        </div>
+                    </t>
+                    <div class="d-flex align-items-center">
+                        <t t-if="projects">
+                            <a t-attf-href="/portal/tasks?project_id=#{projects.id}&amp;groupby=&amp;sortby=terlama" class="btn btn-light d-flex align-items-center me-1" style="padding: 7px 7px">
+                                <i class="fa fa-tasks me-2 ms-2 mt-1"/>
+                                <span>Tasks</span>
+                                <span class="badge bg-light text-black" style="font-size: 14px;margin-top: 2px;">
+                                    <t t-esc="task_count"/>
+                                </span>
+                            </a>
+                        </t>
+                        <span id="z_project_status" class="badge bg-light text-dark" style="font-size: 12px;padding: 16px;display: inline-block;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;max-width: 110px;">
+                            <t t-if="projects and projects_status">
+                                <t t-esc="projects_status"/>
+                            </t>
+                            <t t-else="">
+                                New
+                            </t>
+                        </span>
+                    </div>
+                </div>
+                <!-- [Content & Notebook] -->
+                <div class="row">
+                    <div class="col-lg-12">
+                        <form action="/portal/projects" method="post" id="project_form">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="project_id" t-att-value="projects and projects.id or None"/>
+                            <div class="row">
+                                <!-- [left] -->
+                                <div class="col-lg-6">
+                                    <div class="mb-3">
+                                        <label for="project_code" class="form-label">Project Code</label>
+                                        <input type="text" class="form-control" id="project_code" name="name" t-att-value="projects and projects.name or ''" required="required" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"/>
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <label for="project_name" class="form-label">Name of The Projects</label>
+                                        <input type="text" class="form-control" id="project_name" name="label_tasks" t-att-value="projects and projects.label_tasks or ''" required="required" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"/>
+                                    </div>
+                                    <div id="partner_id" style="margin-bottom: 10px;">
+                                        <label class="col-form-label" for="partner_id">Customer</label>
+                                        <select name="partner_id" t-attf-class="form-select js-example-basic-single" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <t t-foreach="partner_ids or []" t-as="partner_id">
+                                                <option t-att-value="partner_id.id" t-att-selected="projects and projects.partner_id and partner_id.id == projects.partner_id.id">
+                                                    <t t-esc="partner_id.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div id="z_group_type_project" style="margin-bottom: 9px;">
+                                        <label class="col-form-label" for="z_group_type_project">Group</label>
+                                        <select name="z_group_type_project" t-attf-class="form-select" required="required" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <option value="project" t-att-selected="projects and projects.z_group_type_project == 'project' and 'selected'">Project</option>
+                                            <option value="non_project" t-att-selected="projects and projects.z_group_type_project == 'non_project' and 'selected'">Non Project</option>
+                                        </select>
+                                    </div>
+                                    <div id="z_type_in_project" style="margin-bottom: 9px; display: none;">
+                                        <label class="col-form-label" for="z_type_in_project">Type of Project</label>
+                                        <select name="z_type_in_project" t-attf-class="form-select" style="margin-top: 1px;" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <option value="delivery" t-att-selected="projects and projects.z_type_in_project == 'delivery' and 'selected'">Delivery</option>
+                                            <option value="maintenance" t-att-selected="projects and projects.z_type_in_project == 'maintenance' and 'selected'">Maintenance</option>
+                                        </select>
+                                    </div>
+                                    <div id="z_type_non_project" style="margin-bottom: 9px; display: none;">
+                                        <label class="col-form-label" for="z_type_non_project">Type of Non Project</label>
+                                        <select name="z_type_non_project" t-attf-class="form-select" style="margin-top: 1px;" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <option value="others" t-att-selected="projects and projects.z_type_non_project == 'others' and 'selected'">Others</option>
+                                            <option value="ticket" t-att-selected="projects and projects.z_type_non_project == 'ticket' and 'selected'">Ticket</option>
+                                        </select>
+                                    </div>
+                                    <div id="z_project_manager_ids" style="margin-bottom: 9px;">
+                                        <label class="col-form-label" for="z_project_manager_ids">Project Manager</label>
+                                        <select name="z_project_manager_ids" t-attf-class="form-select js-example-basic-multiple" multiple="multiple" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <t t-foreach="employees_ids or []" t-as="employee_id">
+                                                <option t-att-value="employee_id.id" t-att-selected="projects and projects.z_project_manager_ids and employee_id.id in projects.z_project_manager_ids.ids and 'selected'">
+                                                    <t t-esc="employee_id.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div id="tag_ids" class="mb-3">
+                                        <label class="col-form-label" for="tag_ids">Tags</label>
+                                        <select name="tag_ids" t-attf-class="form-select js-example-basic-multiple" multiple="multiple" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <t t-foreach="tag_ids or []" t-as="tag_id">
+                                                <option t-att-value="tag_id.id" t-att-selected="projects and projects.tag_ids and tag_id.id in projects.tag_ids.ids and 'selected'">
+                                                    <t t-esc="tag_id.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                </div>
+                                <!-- [right] -->
+                                <div class="col-lg-6">
+                                    <div class="row">
+                                        <div class="col-6" id="planned_date_start">
+                                            <div class="mb-3">
+                                                <label for="planned_date_start" class="form-label">Planned Start Date</label>
+                                                <input type="date" class="form-control" id="planned_date_start" name="date_start" t-att-value="projects and projects.date_start or ''" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"/>
+                                            </div>
+                                        </div>
+                                        <div class="col-6" id="planned_date_end">
+                                            <div class="mb-3">
+                                                <label for="planned_date_end" class="form-label">Planned End Date</label>
+                                                <input type="date" class="form-control" id="planned_date_end" name="date" t-att-value="projects and projects.date or ''" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6" id="actual_date_start">
+                                            <div class="mb-3">
+                                                <label for="actual_date_start" class="form-label">Actual Start Date</label>
+                                                <input type="date" class="form-control" id="actual_date_start" name="z_actual_start_date" t-att-value="projects and projects.z_actual_start_date or ''" disabled="disabled"/>
+                                            </div>
+                                        </div>
+                                        <div class="col-6" id="actual_date_end">
+                                            <div class="mb-3">
+                                                <label for="actual_date_end" class="form-label">Actual End Date</label>
+                                                <input type="date" class="form-control" id="actual_date_end" name="z_actual_end_date" t-att-value="projects and projects.z_actual_end_date or ''" disabled="disabled"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="budget_mandays" class="mb-3">
+                                        <label for="budget_mandays" class="form-label">Budget Mandays</label>
+                                        <input type="float" class="form-control js-accounting-format" id="budget_mandays" name="z_mandays_budget" t-att-value="projects and projects.z_mandays_budget or ''" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"/>
+                                    </div>
+                                    <div id="actual_mandays" class="mb-3">
+                                        <label for="actual_mandays" class="form-label">Actual Mandays</label>
+                                        <input type="float" class="form-control js-accounting-format" id="actual_mandays" name="z_actual_budget_mandays" t-att-value="projects and projects.z_actual_budget_mandays or ''" disabled="disabled"/>
+                                    </div>
+                                    <t t-if="groups_access in ('project_admin','project_manager')">
+                                        <div id="project_value" class="mb-3">
+                                            <label for="project_value" class="form-label">Project Value (Rp.)</label>
+                                            <input type="float" class="form-control js-accounting-format" id="project_value" name="z_value_project" t-att-value="projects and projects.z_value_project or ''" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"/>
+                                        </div>
+                                    </t>
+                                    <div id="progress" class="mb-3">
+                                        <label for="project_progress" class="form-label">Progress (%)</label>
+                                        <input type="float" class="form-control js-accounting-format" id="project_progress" name="z_progress_project" t-att-value="projects and projects.z_progress_project or ''" disabled="disabled"/>
+                                    </div>
+                                    <div id="z_requestor_id" class="mb-3">
+                                        <label class="col-form-label" for="z_requestor_id">Requestor</label>
+                                        <select name="z_requestor_id" t-attf-class="form-select js-example-basic-single" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <t t-foreach="employees_ids or []" t-as="employee_id">
+                                                <option t-att-value="employee_id.id" t-att-selected="projects and projects.z_requestor_id and employee_id.id == projects.z_requestor_id.id">
+                                                    <t t-esc="employee_id.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div id="z_request_date" style="margin-bottom: 9px;">
+                                        <label for="z_request_date" class="form-label">Request Date</label>
+                                        <input type="date" class="form-control" name="z_request_date" t-att-value="projects and projects.z_request_date or ''" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"/>
+                                    </div>
+                                    <div id="z_ticket_admin_id" style="margin-bottom: 9px;">
+                                        <label class="col-form-label" for="z_ticket_admin_id">Ticket Admin</label>
+                                        <select name="z_ticket_admin_id" t-attf-class="form-select js-example-basic-single" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                            <option value="">select...</option>
+                                            <t t-foreach="employees_ids or []" t-as="employee_id">
+                                                <option t-att-value="employee_id.id" t-att-selected="projects and projects.z_ticket_admin_id and employee_id.id == projects.z_ticket_admin_id.id">
+                                                    <t t-esc="employee_id.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- [Tab Settings] -->
+                            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="projectTeams-tab" data-bs-toggle="tab" data-bs-target="#project_teams" type="button" role="tab" aria-controls="projectTeams" aria-selected="true">Project Teams</button>
+                                </li>
+                                <li class="nav-item" role="presentation" style="display: none;">
+                                    <button class="nav-link" id="programName-tab" data-bs-toggle="tab" data-bs-target="#program_name" type="button" role="tab" aria-controls="programName" aria-selected="false">Program</button>
+                                </li>
+                                <li class="nav-item" role="presentation" style="display: none;">
+                                    <button class="nav-link" id="invoicePlan-tab" data-bs-toggle="tab" data-bs-target="#invoice_plan" type="button" role="tab" aria-controls="invoicePlan" aria-selected="false">Invoice Plan</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="description-tab" data-bs-toggle="tab" data-bs-target="#description" type="button" role="tab" aria-controls="description" aria-selected="false">Description</button>
+                                </li>
+                                <li class="nav-item" role="presentation" style="display: none;">
+                                    <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab" aria-controls="settings" aria-selected="false">Settings</button>
+                                </li>
+                            </ul>
+                            <!-- [Data Tab Settings] -->
+                            <div class="tab-content" id="myTabContent">
+                                <div class="tab-pane fade show active" id="project_teams" role="tabpanel" aria-labelledby="projectTeams-tab">
+                                    <div class="mt-1 mb-3 col-lg-12" id="projectTeamsTableWrapper">
+                                        <t t-call="portal.portal_table">
+                                            <thead>
+                                                <tr height="40px">
+                                                    <th>Employee Name</th>
+                                                    <th>Job Position</th>
+                                                    <th>Job Position (Current)</th>
+                                                    <th>Bobot (%)</th>
+                                                    <th/>
+                                                </tr>
+                                            </thead>
+                                            <t t-set="total_bobot" t-value="0.0"/>
+                                            <tbody t-if="projects and projects.z_project_teams2_ids">
+                                                <t t-foreach="projects.z_project_teams2_ids" t-as="x">
+                                                    <tr class="project-team-row"
+                                                        style="cursor: pointer;"
+                                                        t-att-data-id="x.id"
+                                                        t-att-data-employee-id="x.z_project_teams_employee_id.id"
+                                                        t-att-data-job-id="x.z_project_teams_job_id.id"
+                                                        t-att-data-job2-id="x.z_project_teams_job2_id.id"
+                                                        t-att-data-bobot="x.z_project_teams_bobot">
+                                                        <td><span t-field="x.z_project_teams_employee_id.name"/></td>
+                                                        <td><span t-field="x.z_project_teams_job_id.name"/></td>
+                                                        <td><span t-field="x.z_project_teams_job2_id.name"/></td>
+                                                        <td><t t-esc="'%.2f' % x.z_project_teams_bobot"/></td>
+                                                        <td class="text-center" style="cursor: default;">
+                                                            <t t-if="groups_access in ('project_admin','project_manager')">
+                                                                <button type="button"
+                                                                    class="btn btn-link p-0 text-danger delete-team-btn"
+                                                                    t-att-data-project-id="projects.id"
+                                                                    t-att-data-team-id="x.id">
+                                                                    <i class="fa fa-trash"/>
+                                                                </button>
+                                                            </t>
+                                                        </td>
+                                                    </tr>
+                                                    <t t-set="total_bobot" t-value="total_bobot + (x.z_project_teams_bobot or 0.0)"/>
+                                                </t>
+                                            </tbody>
+                                            <tfoot class="add-line-button">
+                                                <tr>
+                                                    <t t-if="projects and groups_access in ('project_admin','project_manager')">
+                                                        <td colspan="5" class="o_add_line_td" data-bs-toggle="modal" data-bs-target="#addProjectTeamsModal">
+                                                            <span style="color: #017e84; cursor: pointer;">Add a line</span>
+                                                        </td>
+                                                    </t>
+                                                    <t t-if="not projects">
+                                                        <td colspan="5" class="o_no_data_line_td text-center">
+                                                            No data
+                                                        </td>
+                                                    </t>
+                                                </tr>
+                                                <tr>
+                                                    <td colspan="3"></td>
+                                                    <td class="fw-bold"><t t-esc="'%.2f' % total_bobot"/></td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+                                        </t>
+                                    </div>
+                                 </div>
+                                <div class="tab-pane fade" id="program_name" role="tabpanel" aria-labelledby="programName-tab">
+                                    <div class="mt-1 mb-3 col-lg-12" id="programNameTableWrapper">
+                                        <t t-call="portal.portal_table">
+                                            <t t-set="table_id" t-value="'programNameTable'"/>
+                                            <thead>
+                                                <tr height="40px">
+                                                    <th>Program Name</th>
+                                                    <th/>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="program_table_body">
+                                                <t t-if="projects and projects.z_program_name_ids">
+                                                    <t t-foreach="projects.z_program_name_ids" t-as="program">
+                                                        <tr style="cursor: pointer;">
+                                                            <td><span t-field="program.z_name"/></td>
+                                                            <td class="text-center" style="cursor: default;">
+                                                                <t t-if="groups_access in ('project_admin','project_manager')">
+                                                                    <button type="button"
+                                                                        class="btn btn-link p-0 text-danger delete-program-btn"
+                                                                        t-att-data-project-id="projects.id"
+                                                                        t-att-data-program-id="program.id">
+                                                                        <i class="fa fa-trash"/>
+                                                                    </button>
+                                                                </t>
+                                                            </td>
+                                                        </tr>
+                                                    </t>
+                                                </t>
+                                            </tbody>
+                                            <tfoot class="add-line-button">
+                                                <tr>
+                                                    <t t-if="projects and groups_access in ('project_admin','project_manager')">
+                                                        <td colspan="2" class="o_add_line_td" data-bs-toggle="modal" data-bs-target="#addProgramModal">
+                                                            <span style="color: #017e84; cursor: pointer;">Add a line</span>
+                                                        </td>
+                                                    </t>
+                                                    <t t-if="not projects">
+                                                        <td colspan="2" class="o_no_data_line_td text-center">
+                                                            No data
+                                                        </td>
+                                                    </t>
+                                                </tr>
+                                            </tfoot>
+                                        </t>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="invoice_plan" role="tabpanel" aria-labelledby="invoicePlan-tab">
+                                    <div class="mb-3 col-lg-12" id="invoicePlanTableWrapper">
+                                        <t t-call="portal.portal_table">
+                                            <t t-set="table_id" t-value="'invoicePlanTable'"/>
+                                            <thead>
+                                                <tr height="40px">
+                                                    <th>No. Invoice</th>
+                                                    <th>Invoice Description</th>
+                                                    <th>Invoice Date</th>
+                                                    <th>Amount</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="program_table_body">
+                                                <t t-if="projects and projects.z_invoice_plan_ids">,
+                                                    <t t-foreach="projects.z_invoice_plan_ids" t-as="invoice_id">
+                                                        <tr style="cursor: pointer;">
+                                                            <td><span t-field="invoice_id.z_name"/></td>
+                                                            <td><span t-field="invoice_id.z_description"/></td>
+                                                            <td><span t-field="invoice_id.z_date" t-options="{'widget': 'date'}"/></td>
+                                                            <td><span t-field="invoice_id.z_amount_total"/></td>
+                                                            <td><span t-field="invoice_id.z_state"/></td>
+                                                        </tr>
+                                                    </t>
+                                                </t>
+                                            </tbody>
+                                            <tfoot class="add-line-button">
+                                                <tr>
+                                                    <t t-if="not projects or not projects.z_invoice_plan_ids">
+                                                        <td colspan="5" class="o_no_data_line_td text-center">
+                                                            No data
+                                                        </td>
+                                                    </t>
+                                                </tr>
+                                            </tfoot>
+                                        </t>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="description" role="tabpanel" aria-labelledby="home-tab">
+                                    <div class="mt-3 mb-3 col-lg-12">
+                                        <textarea class="form-control auto-resize"
+                                        style="min-height: 150px; overflow:hidden;"
+                                        id="project_description"
+                                        name="description"
+                                        t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None"
+                                        placeholder="insert description..."><t t-raw="projects_description"/></textarea>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="settings" role="tabpanel" aria-labelledby="settings-tab">
+                                    <div class="mt-3 mb-3 col-lg-12">
+                                        <textarea type="text" class="form-control" id="project_settings" placeholder="insert settings..."/>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                        <!-- [Modal Add Program Teams] -->
+                        <div class="modal fade" id="addProjectTeamsModal" tabindex="-1" aria-labelledby="addProjectTeamsModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <form action="/portal/projects/#{projects.id}?model=project.project.project.teams" method="post" id="project_project_teams_form">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <input type="hidden" name="project_id" t-att-value="projects and projects.id or None"/>
+                                        <input type="hidden" name="model" value="project.project.project.teams"/>
+                                        <input type="hidden" name="team_id" value=""/>
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="addProjectTeamsModalLabel">Add: Project Teams</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row">
+                                                <div class="col-lg-6">
+                                                    <div style="margin-bottom: 10px;">
+                                                        <label class="col-form-label" for="z_project_teams_employee_id">Employee Name</label>
+                                                        <select name="z_project_teams_employee_id" t-attf-class="form-select js-example-basic-single" t-att-data-project-id="projects and projects.id or ''" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                                            <option value="">select...</option>
+                                                            <t t-foreach="employees_ids or []" t-as="x">
+                                                                <option t-att-value="x.id">
+                                                                    <t t-esc="x.name" />
+                                                                </option>
+                                                            </t>
+                                                        </select>
+                                                    </div>
+                                                    <div style="margin-bottom: 10px;">
+                                                        <label class="col-form-label" for="z_project_teams_job_id">Job Position</label>
+                                                        <select name="z_project_teams_job_id" t-attf-class="form-select js-example-basic-single" style="background: #f5f5f5;" disabled="disabled">
+                                                            <option value="">select...</option>
+                                                            <t t-foreach="job_ids or []" t-as="x">
+                                                                <option t-att-value="x.id">
+                                                                    <t t-esc="x.name" />
+                                                                </option>
+                                                            </t>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <div class="mb-3">
+                                                        <label class="col-form-label" for="z_project_teams_job2_id">Job Position (Current)</label>
+                                                        <select name="z_project_teams_job2_id" t-attf-class="form-select js-example-basic-single" t-att-data-project-id="projects and projects.id or ''" t-att-disabled="groups_access not in ('project_admin','project_manager') and 'disabled' or None">
+                                                            <option value="">select...</option>
+                                                            <t t-foreach="job_ids or []" t-as="x">
+                                                                <option t-att-value="x.id">
+                                                                    <t t-esc="x.name" />
+                                                                </option>
+                                                            </t>
+                                                        </select>
+                                                    </div>
+                                                    <div style="margin-bottom: 10px;">
+                                                        <label for="z_project_teams_bobot" class="form-label">Bobot (%)</label>
+                                                        <input type="text" class="form-control" name="z_project_teams_bobot" disabled="disabled"/>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <t t-if="groups_access in ('project_admin','project_manager')">
+                                            <div class="modal-footer">
+                                                <button type="submit" class="btn btn-primary" id="saveProjectTeamsNamesBtn">Save</button>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            </div>
+                                        </t>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- [Modal Add Program Name] -->
+                        <div class="modal fade" id="addProgramModal" tabindex="-1" aria-labelledby="addProgramModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <form action="/portal/projects?model=project.project.program.name" method="post" id="project_program_name_form">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <input type="hidden" name="project_id" t-att-value="projects and projects.id or None"/>
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="addEmployeeModalLabel">Add: Program</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <!-- [Program Name] -->
+                                                    <div class="mb-1">
+                                                        <label for="program_name" class="form-label">Program Name</label>
+                                                        <input type="text" class="form-control" id="program_name" name="z_name" required="required"/>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <t t-if="groups_access in ('project_admin','project_manager')">
+                                            <div class="modal-footer">
+                                                <button type="submit" class="btn btn-primary" id="saveProgramNamesBtn">Save</button>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            </div>
+                                        </t>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <hr/>
+                        <div id="project_chatter" data-anchor="true">
+                            <h3>Communication history</h3>
+                            <t t-if="projects">
+                                <t t-set="object" t-value="projects"/>
+                                <t t-set="token" t-value="projects.access_token"/>
+                                <t t-call="portal.message_thread"/>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+            </t>
+            <t t-if="not view_type or view_type in ('list','gantt')">
+                <div class="o_portal_projects_header row mb-4 d-flex align-items-center">
+                    <div class="col-12 d-flex align-items-center">
+                        <t t-if="groups_access in ('project_admin','project_manager')">
+                            <a href="/portal/projects?view_type=form" class="btn btn-primary d-flex align-items-center me-2">
+                                New
+                            </a>
+                        </t>
+                        <div class="d-flex align-items-center">
+                            <h3 class="mb-0 me-2">Projects</h3>
+                            <button type="button" style="display: none;" class="btn btn-link p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#settingModal" title="Settings">
+                                <i class="fa fa-cog"/>
+                            </button>
+                            <div class="modal fade" id="settingModal" tabindex="-1" aria-labelledby="settingModalLabel" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="settingModalLabel">Settings</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="list-group">
+                                                <a href="/portal/projects/import_template" class="list-group-item list-group-item-action">
+                                                    <i class="fa fa-download me-2"></i> Download Import Template
+                                                </a>
+                                                <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#importFormCollapse" aria-expanded="false" aria-controls="importFormCollapse">
+                                                    <i class="fa fa-upload me-2"></i> Import Projects
+                                                </a>
+                                                <a href="/portal/projects/export" class="list-group-item list-group-item-action">
+                                                    <i class="fa fa-file-excel-o me-2"></i> Export All Projects
+                                                </a>
+                                            </div>
+                                            <div class="collapse mt-4" id="importFormCollapse">
+                                                <h4>Import Projects</h4>
+                                                <form action="#" method="post" enctype="multipart/form-data">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <div class="mb-3">
+                                                        <label for="import_file" class="form-label">Choose CSV/Excel File</label>
+                                                        <input type="file" class="form-control" id="import_file" name="file" required="required"/>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-primary">Import</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-grow-1 justify-content-end">
+                            <div class="dropdown me-0 mb-2 mb-lg-0">
+                                <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="dropdownViewType" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <span>View: </span><t t-out="view_type_settings.get(view_type, {}).get('label', 'List')"/>
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownGrouping">
+                                    <li t-foreach="view_type_settings" t-as="view_line">
+                                        <a role="menuitem" class="dropdown-item" t-att-href="'/portal/projects?view_type=%s' % (view_line)">
+                                            <span t-out="view_type_settings[view_line]['label']"/>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <t t-if="not view_type or view_type == 'list'">
+                    <div class="o_portal_projects_search_controls row align-items-center mb-4">
+                        <div class="col-lg-4 col-md-12 d-flex mb-2 mb-lg-0">
+                            <form action="/portal/projects" method="get" class="d-flex w-100">
+                                <input type="hidden" name="sortby" t-att-value="sortby"/>
+                                <input type="hidden" name="groupby" t-att-value="groupby"/>
+                                <div class="input-group">
+                                    <input type="text" name="search" class="form-control" t-att-value="search" placeholder="Search projects..."/>
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="fa fa-search"/>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-lg-8 col-md-12 d-flex flex-wrap justify-content-start justify-content-lg-end align-items-center">
+                            <div class="dropdown me-2 mb-2 mb-lg-0">
+                                <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="dropdownSortingGrouping" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <span>Options</span>
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownSortingGrouping">
+                                    <li class="dropdown-header">Sort By</li>
+                                    <li t-foreach="searchbar_sort" t-as="sort_key">
+                                        <a role="menuitem" t-attf-class="dropdown-item #{'active' if sort_key == sortby else ''}" t-att-href="'/portal/projects?sortby=%s&amp;search=%s&amp;groupby=%s' % (sort_key, search, groupby)">
+                                            <span t-out="searchbar_sort[sort_key]['label']"/>
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"/></li>
+                                    <li class="dropdown-header">Group By</li>
+                                    <li t-foreach="searchbar_group" t-as="group_key">
+                                        <a role="menuitem" t-attf-class="dropdown-item #{'active' if group_key == groupby else ''}" t-att-href="'/portal/projects?sortby=%s&amp;search=%s&amp;groupby=%s' % (sortby, search, group_key)">
+                                            <span t-out="searchbar_group[group_key]['label']"/>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="d-flex flex-grow-1 justify-content-end">
+                                <t t-if="pager_header and not groupby">
+                                    <t t-call="portal.pager">
+                                        <t t-set="pager" t-value="pager_header"/>
+                                    </t>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <hr/>
+                    <t t-if="projects">
+                        <div class="table-responsive">
+                            <t t-call="portal.portal_table">
+                                <table class="table table-striped" style="table-layout: fixed;margin-top: -10px !important;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 130px;">Projects Code</th>
+                                            <th style="width: 130px;">Projects Name</th>
+                                            <th style="width: 150px;">Customer</th>
+                                            <th style="width: 150px;">Project Manager</th>
+                                            <th style="width: 100px;">Group</th>
+                                            <th style="width: 130px;">Planned Date</th>
+                                            <th style="width: 130px;">Actual Date</th>
+                                            <th style="width: 130px;">Budget Mandays</th>
+                                            <th style="width: 130px;">Actual Mandays</th>
+                                            <th style="width: 130px;">Project Value</th>
+                                            <th style="width: 100px;">Progress (%)</th>
+                                            <th style="width: 100px;">Status</th>
+                                            <th style="width: 50px;text-align: center;"/>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-if="groupby">
+                                            <t t-foreach="projects" t-as="group_data">
+                                                <!-- Header Group -->
+                                                <tr class="table-borderless" style="background-color: white; border-bottom: 2px solid #d1d9df;">
+                                                    <td colspan="99">
+                                                        <t t-if="groupby in ('z_project_status','z_group_type_project')">
+                                                            <button class="btn btn-link p-0" type="button"
+                                                                    t-attf-data-bs-target="#collapse_group_#{group_data.get('group_key')}_#{group_data.get('group_index')}"
+                                                                    data-bs-toggle="collapse" aria-expanded="false">
+                                                                <i class="fa fa-caret-right me-2"></i>
+                                                                <strong>
+                                                                    <t t-out="group_data.get('group_value')"/>
+                                                                    (<t t-out="group_data.get('pager').get('total')"/>)
+                                                                </strong>
+                                                            </button>
+                                                        </t>
+                                                        <t t-else="">
+                                                            <t t-if="isinstance(group_data.get('group_key'), str)">
+                                                                <button class="btn btn-link p-0" type="button"
+                                                                        t-attf-data-bs-target="#collapse_group_#{group_data.get('group_key')}_#{group_data.get('group_index')}"
+                                                                        data-bs-toggle="collapse" aria-expanded="false">
+                                                                    <i class="fa fa-caret-right me-2"></i>
+                                                                    <strong>
+                                                                        Undefined (<t t-out="group_data.get('pager').get('total')"/>)
+                                                                    </strong>
+                                                                </button>
+                                                            </t>
+                                                            <t t-else="">
+                                                                <button class="btn btn-link p-0" type="button"
+                                                                        t-attf-data-bs-target="#collapse_group_#{group_data.get('group_key').id}_#{group_data.get('group_index')}"
+                                                                        data-bs-toggle="collapse" aria-expanded="false">
+                                                                    <i class="fa fa-caret-right me-2"></i>
+                                                                    <strong>
+                                                                        <t t-out="group_data.get('group_key').name"/>
+                                                                        (<t t-out="group_data.get('pager').get('total')"/>)
+                                                                    </strong>
+                                                                </button>
+                                                            </t>
+                                                        </t>
+                                                        <t t-if="group_data.get('pager').get('total') &gt; group_data.get('pager').get('step')">
+                                                            <nav aria-label="pager group" class="d-inline-block ms-3">
+                                                                <ul class="pagination pagination-sm mb-0">
+                                                                    <t t-foreach="group_data.get('pager').get('pages')" t-as="p">
+                                                                        <li t-att-class="'page-item %s' % ('active' if p == group_data.get('pager').get('page') else '')">
+                                                                            <a class="page-link"
+                                                                               t-att-href="request.httprequest.path + '?' + (common_query and (common_query + '&amp;') or '') + group_data.get('pager').get('page_param') + '=' + str(p)">
+                                                                                <t t-esc="p"/>
+                                                                            </a>
+                                                                        </li>
+                                                                    </t>
+                                                                </ul>
+                                                            </nav>
+                                                        </t>
+                                                    </td>
+                                                </tr>
+                                                <!-- Isi project per group -->
+                                                <t t-if="groupby in ('z_project_status','z_group_type_project')">
+                                                    <t t-foreach="group_data.get('projects')" t-as="project">
+                                                        <tr t-attf-class="collapse"
+                                                            t-attf-id="collapse_group_#{(group_data.get('group_key') if group_data.get('group_key') else 'undefined')}_#{group_data.get('group_index')}"
+                                                            style="cursor:pointer; background-color:white;"
+                                                            t-attf-onclick="window.location.href='/portal/projects/#{project.id}?view_type=form'">
+                                                            <td><span t-field="project.name"/></td>
+                                                            <td><span t-field="project.label_tasks"
+                                                            style="display: -webkit-box;
+                                                            -webkit-line-clamp: 2;
+                                                            -webkit-box-orient: vertical;
+                                                            overflow: hidden;
+                                                            text-overflow: ellipsis;
+                                                            white-space: normal;"/></td>
+                                                            <td><span t-field="project.partner_id.name"
+                                                            style="display: -webkit-box;
+                                                            -webkit-line-clamp: 2;
+                                                            -webkit-box-orient: vertical;
+                                                            overflow: hidden;
+                                                            text-overflow: ellipsis;
+                                                            white-space: normal;"/></td>
+                                                            <td><span t-field="project.z_project_manager_ids"
+                                                            style="display: -webkit-box;
+                                                            -webkit-line-clamp: 2;
+                                                            -webkit-box-orient: vertical;
+                                                            overflow: hidden;
+                                                            text-overflow: ellipsis;
+                                                            white-space: normal;"
+                                                            /></td>
+                                                            <td><span t-field="project.z_group_type_project"/></td>
+                                                            <td>
+                                                                <span t-field="project.date_start"/>
+                                                                <t t-if="project.date_start and project.date">→</t>
+                                                                <span t-field="project.date"/>
+                                                            </td>
+                                                            <td>
+                                                                <span t-field="project.z_actual_start_date"/>
+                                                                <t t-if="project.z_actual_start_date and project.z_actual_end_date">→</t>
+                                                                <span t-field="project.z_actual_end_date"/>
+                                                            </td>
+                                                            <td><span t-field="project.z_mandays_budget"/></td>
+                                                            <td><span t-field="project.z_actual_budget_mandays"/></td>
+                                                            <td><span t-field="project.z_value_project"/></td>
+                                                            <td><span t-field="project.z_progress_project"/></td>
+                                                            <t t-set="status_dict" t-value="dict(project._fields['z_project_status'].selection)"/>
+                                                            <td><span t-esc="status_dict.get(project.z_project_status) if project.z_project_status else ''"/></td>
+                                                            <td class="text-center" onclick="event.stopPropagation();">
+                                                                <form t-attf-action="/portal/projects/delete/#{project.id}" method="post" class="d-inline-block">
+                                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                    <button type="submit" class="btn btn-primary px-2 py-1" title="Delete Project">
+                                                                        <i class="fa fa-trash text-white"/>
+                                                                    </button>
+                                                                </form>
+                                                            </td>
+                                                        </tr>
+                                                    </t>
+                                                </t>
+                                                <t t-else="">
+                                                    <t t-if="isinstance(group_data.get('group_key'), str)">
+                                                        <t t-foreach="group_data.get('projects')" t-as="project">
+                                                            <tr t-attf-class="collapse"
+                                                                t-attf-id="collapse_group_#{(group_data.get('group_key') if isinstance(group_data.get('group_key'), str) else 'undefined')}_#{group_data.get('group_index')}"
+                                                                style="cursor:pointer; background-color:white;"
+                                                                t-attf-onclick="window.location.href='/portal/projects/#{project.id}?view_type=form'">
+                                                                <td><span t-field="project.name"/></td>
+                                                                <td><span t-field="project.label_tasks"
+                                                                style="display: -webkit-box;
+                                                                -webkit-line-clamp: 2;
+                                                                -webkit-box-orient: vertical;
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;
+                                                                white-space: normal;"/></td>
+                                                                <td><span t-field="project.partner_id.name"
+                                                                style="display: -webkit-box;
+                                                                -webkit-line-clamp: 2;
+                                                                -webkit-box-orient: vertical;
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;
+                                                                white-space: normal;"/></td>
+                                                                <td><span t-field="project.z_project_manager_ids"
+                                                                style="display: -webkit-box;
+                                                                -webkit-line-clamp: 2;
+                                                                -webkit-box-orient: vertical;
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;
+                                                                white-space: normal;"
+                                                                /></td>
+                                                                <td><span t-field="project.z_group_type_project"/></td>
+                                                                <td>
+                                                                    <span t-field="project.date_start"/>
+                                                                    <t t-if="project.date_start and project.date">→</t>
+                                                                    <span t-field="project.date"/>
+                                                                </td>
+                                                                <td>
+                                                                    <span t-field="project.z_actual_start_date"/>
+                                                                    <t t-if="project.z_actual_start_date and project.z_actual_end_date">→</t>
+                                                                    <span t-field="project.z_actual_end_date"/>
+                                                                </td>
+                                                                <td><span t-field="project.z_mandays_budget"/></td>
+                                                                <td><span t-field="project.z_actual_budget_mandays"/></td>
+                                                                <td><span t-field="project.z_value_project"/></td>
+                                                                <td><span t-field="project.z_progress_project"/></td>
+                                                                <t t-set="status_dict" t-value="dict(project._fields['z_project_status'].selection)"/>
+                                                                <td><span t-esc="status_dict.get(project.z_project_status) if project.z_project_status else ''"/></td>
+                                                                <td class="text-center" onclick="event.stopPropagation();">
+                                                                    <form t-attf-action="/portal/projects/delete/#{project.id}" method="post" class="d-inline-block">
+                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                        <button type="submit" class="btn btn-primary px-2 py-1" title="Delete Project">
+                                                                            <i class="fa fa-trash text-white"/>
+                                                                        </button>
+                                                                    </form>
+                                                                </td>
+                                                            </tr>
+                                                        </t>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <t t-foreach="group_data.get('projects')" t-as="project">
+                                                            <tr t-attf-class="collapse"
+                                                                t-attf-id="collapse_group_#{(group_data.get('group_key').id if not isinstance(group_data.get('group_key'), str) else 'undefined')}_#{group_data.get('group_index')}"
+                                                                style="cursor:pointer; background-color:white;"
+                                                                t-attf-onclick="window.location.href='/portal/projects/#{project.id}?view_type=form'">
+                                                                <td><span t-field="project.name"/></td>
+                                                                <td><span t-field="project.label_tasks"
+                                                                style="display: -webkit-box;
+                                                                -webkit-line-clamp: 2;
+                                                                -webkit-box-orient: vertical;
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;
+                                                                white-space: normal;"/></td>
+                                                                <td><span t-field="project.partner_id.name"
+                                                                style="display: -webkit-box;
+                                                                -webkit-line-clamp: 2;
+                                                                -webkit-box-orient: vertical;
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;
+                                                                white-space: normal;"/></td>
+                                                                <td><span t-field="project.z_project_manager_ids"
+                                                                style="display: -webkit-box;
+                                                                -webkit-line-clamp: 2;
+                                                                -webkit-box-orient: vertical;
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;
+                                                                white-space: normal;"
+                                                                /></td>
+                                                                <td><span t-field="project.z_group_type_project"/></td>
+                                                                <td>
+                                                                    <span t-field="project.date_start"/>
+                                                                    <t t-if="project.date_start and project.date">→</t>
+                                                                    <span t-field="project.date"/>
+                                                                </td>
+                                                                <td>
+                                                                    <span t-field="project.z_actual_start_date"/>
+                                                                    <t t-if="project.z_actual_start_date and project.z_actual_end_date">→</t>
+                                                                    <span t-field="project.z_actual_end_date"/>
+                                                                </td>
+                                                                <td><span t-field="project.z_mandays_budget"/></td>
+                                                                <td><span t-field="project.z_actual_budget_mandays"/></td>
+                                                                <td><span t-field="project.z_value_project"/></td>
+                                                                <td><span t-field="project.z_progress_project"/></td>
+                                                                <t t-set="status_dict" t-value="dict(project._fields['z_project_status'].selection)"/>
+                                                                <td><span t-esc="status_dict.get(project.z_project_status) if project.z_project_status else ''"/></td>
+                                                                <td class="text-center" onclick="event.stopPropagation();">
+                                                                    <form t-attf-action="/portal/projects/delete/#{project.id}" method="post" class="d-inline-block">
+                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                        <button type="submit" class="btn btn-primary px-2 py-1" title="Delete Project">
+                                                                            <i class="fa fa-trash text-white"/>
+                                                                        </button>
+                                                                    </form>
+                                                                </td>
+                                                            </tr>
+                                                        </t>
+                                                    </t>
+                                                </t>
+                                            </t>
+                                        </t>
+                                        <t t-else="">
+                                            <t t-foreach="projects" t-as="project">
+                                                <tr style="cursor:pointer; background-color:white;" t-attf-onclick="window.location.href='/portal/projects/#{project.id}?view_type=form'">
+                                                    <td><span t-field="project.name"/></td>
+                                                    <td><span t-field="project.label_tasks"
+                                                    style="display: -webkit-box;
+                                                    -webkit-line-clamp: 2;
+                                                    -webkit-box-orient: vertical;
+                                                    overflow: hidden;
+                                                    text-overflow: ellipsis;
+                                                    white-space: normal;"/></td>
+                                                    <td><span t-field="project.partner_id.name"
+                                                    style="display: -webkit-box;
+                                                    -webkit-line-clamp: 2;
+                                                    -webkit-box-orient: vertical;
+                                                    overflow: hidden;
+                                                    text-overflow: ellipsis;
+                                                    white-space: normal;"/></td>
+                                                    <td><span t-field="project.z_project_manager_ids"
+                                                    style="display: -webkit-box;
+                                                    -webkit-line-clamp: 2;
+                                                    -webkit-box-orient: vertical;
+                                                    overflow: hidden;
+                                                    text-overflow: ellipsis;
+                                                    white-space: normal;"
+                                                    /></td>
+                                                    <td><span t-field="project.z_group_type_project"/></td>
+                                                    <td>
+                                                        <span t-field="project.date_start"/>
+                                                        <t t-if="project.date_start and project.date">→</t>
+                                                        <span t-field="project.date"/>
+                                                    </td>
+                                                    <td>
+                                                        <span t-field="project.z_actual_start_date"/>
+                                                        <t t-if="project.z_actual_start_date and project.z_actual_end_date">→</t>
+                                                        <span t-field="project.z_actual_end_date"/>
+                                                    </td>
+                                                    <td><span t-field="project.z_mandays_budget"/></td>
+                                                    <td><span t-field="project.z_actual_budget_mandays"/></td>
+                                                    <td><span t-field="project.z_value_project"/></td>
+                                                    <td><span t-field="project.z_progress_project"/></td>
+                                                    <t t-set="status_dict" t-value="dict(project._fields['z_project_status'].selection)"/>
+                                                    <td><span t-esc="status_dict.get(project.z_project_status) if project.z_project_status else ''"/></td>
+                                                    <td class="text-center" onclick="event.stopPropagation();">
+                                                        <form t-attf-action="/portal/projects/delete/#{project.id}" method="post" class="d-inline-block">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="submit" class="btn btn-primary px-2 py-1" title="Delete Project">
+                                                                <i class="fa fa-trash text-white"/>
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </t>
+                        </div>
+                    </t>
+                    <t t-if="not projects">
+                        <div class="alert alert-warning" role="alert">
+                            <img src="/web/static/img/folder.svg"/>
+                            There are no projects.
+                        </div>
+                    </t>
+                </t>
+                <t t-if="view_type == 'gantt'">
+                    <hr/>
+                    <t t-set="data_gantt_json" t-value="json.dumps(data_gantt or [])"/>
+                    <div style="width: 100%; height: 80%;">
+                        <div id="gantt-container"/>
+                    </div>
+                    <script src="https://cdn.jsdelivr.net/npm/apexgantt"/>
+                    <script>
+                        const data_gantt = <t t-raw="data_gantt_json"/>;
+                        const today = new Date().toISOString().split("T")[0];
+                        const ganttOptions = {
+                            headerBackground: "white",
+                            viewMode: "week",
+                            arrowColor: "#000000",
+                            rowHeight: 28,
+                            rowBackgroundColors: ["#FFFFFF"],
+                            barBackgroundColor: "#714B67",
+                            enableResize: false,
+                            enableExport: true,
+                            enableTaskDrag: false,
+                            enableTaskEdit: false,
+                            enableTaskResize: true,
+                            annotationBorderColor: "#000000",
+                            enableTooltip: true,
+                            tooltipBorderColor: "#714B67",
+                            tooltipBGColor: "#FFFFFF",
+                            tooltipId: "apexgantt-tooltip-container",
+                            tooltipTemplate: function(task) {
+                                const actualStart = task.actualStartTime || '-';
+                                const actualEnd   = task.actualEndTime   || '-';
+                                const plannedStart = task.startTime || '-';
+                                const plannedEnd   = task.endTime   || '-';
+                                const progress = (typeof task.progress !== 'undefined') ? task.progress + '%' : '-';
+                                return `
+                                    <div class="apexgantt-tooltip" style="font-size:13px;line-height:1.3;padding:20px;">
+                                        <strong>${task.name || ''}</strong><br/>
+                                        Planned: ${plannedStart} → ${plannedEnd}<br/>
+                                        Actual: ${actualStart} → ${actualEnd}<br/>
+                                        Progress: ${progress}
+                                    </div>
+                                `;
+                            },
+                            annotations: [
+                                {
+                                    x1: today,
+                                    x2: 'END DATE',
+                                    label: { text: "Now" },
+                                },
+                            ],
+                            series: data_gantt,
+                        };
+                        const s = new ApexGantt(document.getElementById('gantt-container'), ganttOptions);
+                        s.render();
+                        // change color arrow bar gantt
+                        setTimeout(() => {
+                            document.querySelectorAll('#gantt-container svg path, #gantt-container svg line').forEach(el => {
+                                el.setAttribute('stroke', '#000000');
+                            });
+                        }, 500);
+                    </script>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>
