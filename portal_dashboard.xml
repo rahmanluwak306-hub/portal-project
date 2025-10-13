@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="z_project.portal_dashboard" name="My Portal">
+        <t t-call="z_project.portal_layout">
+            <t t-set="my_details" t-value="True"/>
+            <div class="o_portal_my_home">
+
+                <!-- [Notification] -->
+                <t t-if="new_task_count and new_task_count > 0">
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between" style="border-radius: 10px;">
+                        <div class="d-flex align-items-center">
+                            <i class="fa fa-bell me-2 text-primary" aria-hidden="true"/>
+                            <span>
+                                Kamu punya
+                                <strong>
+                                    <t t-esc="new_task_count"/>
+                                    New Tasks
+                                </strong>
+                            </span>
+                        </div>
+                        <a t-att-href="'/portal/tasks'" class="btn btn-primary">
+                            Lihat Sekarang
+                        </a>
+                    </div>
+                </t>
+                <t t-if="new_task_count and new_task_count > 0">
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between" style="border-radius: 10px;">
+                        <div class="d-flex align-items-center">
+                            <i class="fa fa-bell me-2 text-primary" aria-hidden="true"/>
+                            <span>
+                                Kamu punya
+                                <strong>
+                                    <t t-esc="new_task_count"/>
+                                    membutuhkan Approval di tasks
+                                </strong>
+                            </span>
+                        </div>
+                        <a t-att-href="'/portal/tasks'" class="btn btn-primary">
+                            Lihat Sekarang
+                        </a>
+                    </div>
+                </t>
+                <t t-if="new_task_count and new_task_count > 0">
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between" style="border-radius: 10px;">
+                        <div class="d-flex align-items-center">
+                            <i class="fa fa-bell me-2 text-primary" aria-hidden="true"/>
+                            <span>
+                                Kamu punya
+                                <strong>
+                                    <t t-esc="new_task_count"/>
+                                    membutuhkan Approval di request timesheets
+                                </strong>
+                            </span>
+                        </div>
+                        <a t-att-href="'/portal/tasks'" class="btn btn-primary">
+                            Lihat Sekarang
+                        </a>
+                    </div>
+                </t>
+                <t t-if="new_task_count and new_task_count > 0">
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between" style="border-radius: 10px;">
+                        <div class="d-flex align-items-center">
+                            <i class="fa fa-bell me-2 text-primary" aria-hidden="true"/>
+                            <span>
+                                Kamu punya
+                                <strong>
+                                    <t t-esc="new_task_count"/>
+                                    membutuhkan Approval di correction timesheets
+                                </strong>
+                            </span>
+                        </div>
+                        <a t-att-href="'/portal/tasks'" class="btn btn-primary">
+                            Lihat Sekarang
+                        </a>
+                    </div>
+                </t>
+
+                <div class="o_portal_docs row g-2">
+                    <div class="o_portal_doc_spinner spinner-border text-o-color-2 align-center mt-5"/>
+
+                    <!-- [Project & Tasks] -->
+                    <div class="o_portal_category row g-2 mt-3" id="portal_common_category">
+                        <t t-call="portal.portal_docs_entry" t-if="False"/>
+                        <t t-if="groups_access in ('project_admin','project_manager')">
+                            <t t-call="portal.portal_docs_entry">
+                                <t t-set="icon" t-value="'/web/static/img/folder.svg'"/>
+                                <t t-set="title">Projects</t>
+                                <t t-set="text">Follow the evolution of your projects</t>
+                                <t t-set="url" t-value="'/portal/projects'"/>
+                                <t t-set="config_card" t-value="True"/>
+                            </t>
+                        </t>
+                        <t t-call="portal.portal_docs_entry">
+                            <t t-set="icon" t-value="'/project/static/src/img/tasks.svg'"/>
+                            <t t-set="title">Tasks</t>
+                            <t t-set="text">Follow and comments tasks of your projects</t>
+                            <t t-set="url" t-value="'/portal/tasks'"/>
+                            <t t-set="config_card" t-value="True"/>
+                        </t>
+                        <t t-call="portal.portal_docs_entry">
+                            <t t-set="icon" t-value="'/project/static/src/img/tasks.svg'"/>
+                            <t t-set="title">Documents</t>
+                            <t t-set="text">Browse project documents and attachments</t>
+                            <t t-set="url" t-value="'/portal/documents'"/>
+                            <t t-set="config_card" t-value="True"/>
+                        </t>
+                    </div>
+
+                    <!-- [Timesheets & Security] -->
+                    <div class="o_portal_category row g-2 mt-3" id="portal_common_category">
+                        <t t-call="portal.portal_docs_entry" t-if="False"/>
+                        <t t-call="portal.portal_docs_entry">
+                            <t t-set="icon" t-value="'/hr_timesheet/static/img/timesheet.svg'"/>
+                            <t t-set="title">Timesheets</t>
+                            <t t-set="text">Review all timesheets related to your projects</t>
+                            <t t-set="url" t-value="'/portal/timesheets'"/>
+                            <t t-set="config_card" t-value="True"/>
+                        </t>
+                        <t t-call="portal.portal_docs_entry">
+                            <t t-set="icon" t-value="'/portal/static/src/img/portal-connection.svg'"/>
+                            <t t-set="title">Connection &amp; Security</t>
+                            <t t-set="text">Configure your connection parameters</t>
+                            <t t-set="url" t-value="'/portal/security'"/>
+                            <t t-set="config_card" t-value="True"/>
+                        </t>
+                    </div>
+
+                </div>
+            </div>
+
+
+        </t>
+    </template>
+
+</odoo>

@@ -1,0 +1,1163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="z_project.portal_timesheet" name="Portal Timesheets">
+        <t t-call="z_project.portal_layout">
+            <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+            <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"/>
+            <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"/>
+            <!-- [list] -->
+            <script>
+                document.addEventListener("DOMContentLoaded", function () {
+                    const csrf_token = "<t t-esc='request.csrf_token()'/>";
+
+                    document.addEventListener("click", function (e) {
+                        const approveBtn = e.target.closest(".approved-timesheet-btn");
+                        const rejectBtn = e.target.closest(".rejected-timesheet-btn");
+                        const approveCorr = e.target.closest(".approved-correction-btn");
+                        const rejectCorr = e.target.closest(".rejected-correction-btn");
+
+                        if (approveBtn || rejectBtn || approveCorr || rejectCorr) {
+                            e.stopPropagation(); // biar gak ikut klik
+                        }
+
+                        // APPROVE
+                        if (approveBtn) {
+                            const timesheetId = approveBtn.dataset.timesheetId;
+                            console.log("Approve timesheet", timesheetId);
+
+                            fetch(`/portal/timesheets/${timesheetId}?model=account.analytic.line&amp;function=approved`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                                body: `csrf_token=${csrf_token}`
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                console.log("Response approve:", data);
+                                if (data.success) {
+                                    approveBtn.closest("tr").remove();
+                                } else {
+                                    alert("Failed: " + (data.error || "unknown error"));
+                                }
+                            })
+                            .catch(err => console.error("Approval error:", err));
+                            return;
+                        }
+
+                        // REJECT
+                        if (rejectBtn) {
+                            const timesheetId = rejectBtn.dataset.timesheetId;
+                            console.log("Reject timesheet", timesheetId);
+
+                            fetch(`/portal/timesheets/${timesheetId}?model=account.analytic.line&amp;function=rejected`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                                body: `csrf_token=${csrf_token}`
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                console.log("Response reject:", data);
+                                if (data.success) {
+                                    rejectBtn.closest("tr").remove();
+                                } else {
+                                    alert("Failed: " + (data.error || "unknown error"));
+                                }
+                            })
+                            .catch(err => console.error("Rejection error:", err));
+                            return;
+                        }
+
+                        // APPROVE correction
+                        if (approveCorr) {
+                            const correctionId = approveCorr.dataset.correctionId;
+                            fetch(`/portal/timesheets/corrections/${correctionId}?model=account.analytic.line.request&amp;function=approved`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                                body: `csrf_token=${csrf_token}`
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) approveCorr.closest("tr").remove();
+                                else alert("Failed: " + (data.error || "unknown error"));
+                            })
+                            .catch(err => console.error("Approval error:", err));
+                            return;
+                        }
+
+                        // REJECT correction
+                        if (rejectCorr) {
+                            const correctionId = rejectCorr.dataset.correctionId;
+                            fetch(`/portal/timesheets/corrections/${correctionId}?model=account.analytic.line.request&amp;function=rejected`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                                body: `csrf_token=${csrf_token}`
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) rejectCorr.closest("tr").remove();
+                                else alert("Failed: " + (data.error || "unknown error"));
+                            })
+                            .catch(err => console.error("Rejection error:", err));
+                            return;
+                        }
+                    });
+                });
+                </script>
+
+
+            <!-- [form] -->
+            <script>
+                // approved timesheet
+                document.addEventListener("DOMContentLoaded", function () {
+                    const approveForm = document.getElementById("form_approve_timesheet");
+                    const approveButton = document.getElementById("btn_approve_timesheet");
+                    const csrfToken = approveForm.querySelector("input[name='csrf_token']").value;
+                    approveForm.addEventListener("submit", function (e) {
+                        e.preventDefault();
+                        approveButton.disabled = true;
+                        approveButton.textContent = "Processing...";
+                        fetch(approveForm.action, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded",
+                            },
+                            body: `csrf_token=${csrfToken}`
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            approveButton.disabled = false;
+                            if (data.success) {
+                                window.location.reload();
+                                alert("Timesheet has been approved successfully!");
+                            } else {
+                                window.location.reload();
+                                alert(data.error || "Failed to approve timesheet.");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Error approving timesheet:", err);
+                        });
+                    });
+                });
+
+                // rejected timesheet
+                document.addEventListener("DOMContentLoaded", function () {
+                    const approveForm = document.getElementById("form_rejected_timesheet");
+                    const approveButton = document.getElementById("btn_rejected_timesheet");
+                    const csrfToken = approveForm.querySelector("input[name='csrf_token']").value;
+                    approveForm.addEventListener("submit", function (e) {
+                        e.preventDefault();
+                        approveButton.disabled = true;
+                        approveButton.textContent = "Processing...";
+                        fetch(approveForm.action, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded",
+                            },
+                            body: `csrf_token=${csrfToken}`
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            approveButton.disabled = false;
+                            if (data.success) {
+                                window.location.reload();
+                                alert("Timesheet has been rejected successfully!");
+                            } else {
+                                window.location.reload();
+                                alert(data.error || "Failed to rejected timesheet.");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Error rejecting timesheet:", err);
+                        });
+                    });
+                });
+
+                // handle Approved - Rejected Line
+                document.addEventListener("DOMContentLoaded", function () {
+                    const csrfToken = "<t t-esc='request.csrf_token()'/>";
+                    document.addEventListener("click", async function (e) {
+                        const approveBtn = e.target.closest(".approved-correction-form-btn");
+                        const rejectBtn = e.target.closest(".rejected-correction-form-btn");
+                        if (!approveBtn &amp;&amp; !rejectBtn) return;
+                        const btn = approveBtn || rejectBtn;
+                        if (btn) {
+                            const correctionId = btn.dataset.correctionId;
+                            const actionType = approveBtn ? "approved" : "rejected";
+                            const row = btn.closest("tr");
+                            btn.disabled = true;
+                            btn.innerHTML = `<i class="fa fa-spinner fa-spin text-white"></i> Processing...`;
+                            fetch(`/portal/timesheets/corrections/${correctionId}?model=account.analytic.line.request&amp;function=${actionType}`, {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/x-www-form-urlencoded",
+                                },
+                                body: `csrf_token=${csrfToken}`
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) {
+                                    window.location.reload();
+                                    alert("Timesheet has been updated!");
+                                } else {
+                                    window.location.reload();
+                                    alert(data.error || "Failed updated timesheet.");
+                                }
+                            })
+                            .catch(err => {
+                                console.error("Error approving timesheet:", err);
+                            });
+                        }
+                    });
+                });
+            </script>
+            <style>
+                /* Mengubah warna disabled di modal */
+                .form-control:disabled {
+                    background-color: #f5f5f5;
+                    color: #6c757d;
+                }
+
+                /* Mengubah tampilan kontainer utama Select2 */
+                .select2-container--default .select2-selection--single {
+                    height: 35px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 5px;
+                }
+                /* Mengubah tampilan teks yang dipilih di dalam Select2 */
+                .select2-container--default .select2-selection--single .select2-selection__rendered {
+                    line-height: 28px;
+                    padding-left: 10px;
+                    padding-top: 1px;
+                }
+                /* Mengubah tampilan panah dropdown */
+                .select2-container--default .select2-selection--single .select2-selection__arrow {
+                    height: 35px;
+                    width: 30px;
+                    top: 1px;
+                }
+
+                /* multiple */
+                .select2-container .select2-selection--multiple {
+                    min-height: 35px;
+                }
+                .select2-container--default .select2-selection--multiple {
+                    height: auto !important;
+                    border-color: #dee2e6;
+                    border-radius: 5px;
+                }
+                .select2-container--default .select2-selection--multiple .select2-selection__choice {
+                    background-color: #dee2e6; /* Warna abu-abu yang Anda inginkan */
+                    color: #495057; /* Ubah warna teks agar mudah dibaca */
+                    border: 1px solid #dee2e6; /* Sesuaikan border agar seragam dengan warna latar */
+                }
+                .select2-container--default.select2-container--focus .select2-selection--multiple {
+                    border-color: #dee2e6;
+                }
+
+                /* Make modal body a flexible container */
+                .modal-body {
+                    display: flex;
+                    flex-direction: column;
+                    max-height: 80vh; /* Set a max height for the modal body */
+                    overflow-y: hidden; /* Prevent the entire modal from scrolling */
+                }
+
+                /* Ensure the table container is the only scrollable part */
+                .table-container {
+                    flex-grow: 1; /* Make it fill the remaining space */
+                    overflow-y: auto; /* Add vertical scrollbar only to this container */
+                }
+                /* Make table header sticky */
+                .table-container .sticky-top {
+                    position: sticky;
+                    top: 0;
+                    z-index: 10;
+                    background-color: white;
+                }
+
+                /* Custom scrollbar for desktop browsers */
+                .table-responsive::-webkit-scrollbar {
+                    width: 10px; /* Width of the scrollbar */
+                    height: 10px; /* Height of the scrollbar */
+                }
+                .table-responsive::-webkit-scrollbar-track {
+                    background: #f1f1f1; /* Color of the scrollbar track */
+                    border-radius: 10px;
+                }
+                .table-responsive::-webkit-scrollbar-thumb {
+                    background: #888; /* Color of the scrollbar thumb */
+                    border-radius: 10px;
+                }
+                .table-responsive::-webkit-scrollbar-thumb:hover {
+                    background: #555; /* Color when hovering over the thumb */
+                }
+
+                .limit-2-lines {
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2; /* Batasi 2 baris */
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    word-break: break-word; /* Agar kata panjang tidak meluber */
+                }
+            </style>
+            <!-- [Content] -->
+            <t t-if="view_type == 'form'">
+                <div class="o_portal_projects_header row mb-4 d-flex align-items-center">
+                    <div class="col-auto d-flex align-items-center">
+                        <a href="/portal/timesheets" class="btn btn-primary d-flex align-items-center me-2">
+                            <i class="fa fa-chevron-left me-2 mt-1"/>
+                            Back
+                        </a>
+                        <h3 class="mb-0">
+                            <t t-if="timesheets">
+                                <span t-field="timesheets.name"/>
+                            </t>
+                            <t t-else="">
+                                Create a New Project
+                            </t>
+                        </h3>
+                    </div>
+                </div>
+                <hr/>
+                <!-- [Header] -->
+                <div class="d-flex mb-3 justify-content-between align-items-center">
+                    <t t-if="timesheets">
+                        <div class="d-flex">
+                            <t t-if="timesheets and timesheets.z_state == 'waiting_approval' and groups_access in ('project_admin','project_manager','project_head')">
+                                <!-- Approved -->
+                                <form t-attf-action="/portal/timesheets/#{timesheets.id}?model=account.analytic.line&amp;function=approved"
+                                      method="post" class="me-2" id="form_approve_timesheet">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <button type="submit" class="btn btn-primary d-flex align-items-center" id="btn_approve_timesheet">
+                                        <i class="fa fa-check text-white"/> <span class="ms-1">Approved</span>
+                                    </button>
+                                </form>
+                                <!-- rejected -->
+                                <form t-attf-action="/portal/timesheets/#{timesheets.id}?model=account.analytic.line&amp;function=rejected"
+                                      method="post" class="me-2" id="form_rejected_timesheet">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <button type="submit" class="btn btn-primary d-flex align-items-center" id="btn_rejected_timesheet">
+                                        <i class="fa fa-times text-white"/> <span class="ms-1">Rejected</span>
+                                    </button>
+                                </form>
+                            </t>
+                            <!-- correction -->
+                            <button type="button"
+                                class="btn btn-primary d-flex align-items-center"
+                                data-bs-toggle="modal"
+                                data-bs-target="#correctionType">
+                                <i class="fa fa-edit text-white"/> <span class="ms-1">Edit</span>
+                            </button>
+                            <div class="modal fade" id="correctionType" tabindex="-1">
+                                <div class="modal-dialog modal-dialog-scrollable modal-lg">
+                                    <div class="modal-content">
+                                        <form action="/portal/timesheets/#{timesheets.id}" method="post" id="timesheet_timesheet_correction_form">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <input type="hidden" name="project_id" t-att-value="timesheets and timesheets.project_id.id or None"/>
+                                            <input type="hidden" name="timesheet_id" t-att-value="timesheets and timesheets.id or None"/>
+                                            <input type="hidden" name="model" value="account.analytic.line.request"/>
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Timesheet Correction</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"/>
+                                            </div>
+                                            <div class="modal-body text-start">
+                                                <div class="alert alert-secondary py-2 mb-3">
+                                                    <strong>Original</strong>
+                                                    = stored now.
+                                                    <br/>
+                                                    <strong>Actual (New)</strong>
+                                                    = proposed change (pending approval).
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-lg-6">
+                                                        <div class="mb-3">
+                                                            <label for="z_ori_start_date" class="form-label">Original Start Date</label>
+                                                            <input type="datetime-local" class="form-control" name="z_ori_start_date" t-att-value="timesheets and (timesheets.z_timesheet_start_date and (timesheets.z_timesheet_start_date + datetime.timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S') or '') or ''" disabled="disabled"/>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="z_ori_end_date" class="form-label">Original End Date</label>
+                                                            <input type="datetime-local" class="form-control" name="z_ori_end_date" t-att-value="timesheets and (timesheets.z_timesheet_end_date and (timesheets.z_timesheet_end_date + datetime.timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S') or '') or ''" disabled="disabled"/>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-lg-6">
+                                                        <div class="mb-3">
+                                                            <label for="z_current_start_date" class="form-label">Actual Start Date</label>
+                                                            <input type="datetime-local" class="form-control" name="z_current_start_date" required="required"/>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="z_current_end_date" class="form-label">Actual End Date</label>
+                                                            <input type="datetime-local" class="form-control" name="z_current_end_date" required="required"/>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="name" class="form-label">Description</label>
+                                                    <input type="text" class="form-control" name="name" required="required"/>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="submit" class="btn btn-primary" id="saveTimesheetCorrectionNamesBtn">Submit</button>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                    <div class="d-flex align-items-center">
+                        <t t-if="timesheets">
+                            <a t-attf-href="/portal/timesheets/#{timesheets.id}?model=account.analytic.line.request" class="btn btn-light d-flex align-items-center me-1" style="padding: 7px 7px">
+                                <i class="fa fa-tasks me-2 ms-2 mt-1"/>
+                                <span>Details</span>
+                                <span class="badge bg-light text-black" style="font-size: 14px;margin-top: 2px;">
+                                    <t t-set="timesheets_detail" t-value="env['account.analytic.line.request'].sudo().search([('id','in',timesheets.z_line_ids.ids)], order='id desc', limit=20)"/>
+                                    <t t-if="groups_access == 'project_head'">
+                                        <t t-set="timesheets_detail" t-value="env['account.analytic.line.request'].sudo().search([('id','in',timesheets.z_line_ids.ids),('z_employee_id','in',data_employee_content)], order='id desc', limit=20)"/>
+                                    </t>
+                                    <t t-if="groups_access == 'project_engineer'">
+                                        <t t-set="timesheets_detail" t-value="env['account.analytic.line.request'].sudo().search([('id','in',timesheets.z_line_ids.ids),('z_employee_id','=',employee_ids.id)], order='id desc', limit=20)"/>
+                                    </t>
+                                    <t t-esc="len(timesheets_detail)"/>
+                                </span>
+                            </a>
+                        </t>
+                        <span id="z_project_status" class="badge bg-light text-dark" style="font-size: 12px;padding: 16px;display: inline-block;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;max-width: 110px;">
+                            <t t-if="timesheets">
+                                <t t-set="status_dict" t-value="dict(timesheets._fields['z_state'].selection)"/>
+                                <t t-esc="status_dict.get(timesheets.z_state) if timesheets.z_state else ''"/>
+                            </t>
+                            <t t-else="">
+                                New
+                            </t>
+                        </span>
+                    </div>
+                </div>
+                <!-- [Content & Notebook] -->
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="row">
+                            <!-- [left] -->
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label for="z_timesheet_start_date" class="form-label">Start Date</label>
+                                    <input type="text" class="form-control" id="start_date"
+                                       name="z_timesheet_start_date"
+                                       t-att-value="timesheets and (timesheets.z_timesheet_start_date and (timesheets.z_timesheet_start_date + datetime.timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S') or '') or ''"
+                                       disabled="disabled"/>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="z_timesheet_end_date" class="form-label">End Date</label>
+                                    <input type="text" class="form-control" id="start_date"
+                                       name="z_timesheet_end_date"
+                                       t-att-value="timesheets and (timesheets.z_timesheet_end_date and (timesheets.z_timesheet_end_date + datetime.timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S') or '') or ''"
+                                       disabled="disabled"/>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="unit_amount" class="form-label">Timespent</label>
+                                    <input type="text" class="form-control" id="unit_amount" name="unit_amount" t-att-value="timesheets and timesheets.unit_amount or ''" disabled="disabled"/>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Description</label>
+                                    <input type="text" class="form-control" id="name" name="name" t-att-value="timesheets and timesheets.name or ''" disabled="disabled"/>
+                                </div>
+                            </div>
+                            <!-- [right] -->
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="employee_id">Employee</label>
+                                    <select name="employee_id" t-attf-class="form-select js-example-basic-single" disabled="disabled">
+                                        <option value="">select...</option>
+                                        <t t-foreach="data_employee or []" t-as="employee_id">
+                                            <option t-att-value="employee_id.id" t-att-selected="timesheets and timesheets.employee_id and employee_id.id == timesheets.employee_id.id">
+                                                <t t-esc="employee_id.name" />
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="project_id">Projects</label>
+                                    <select name="project_id" t-attf-class="form-select js-example-basic-single" disabled="disabled">
+                                        <option value="">select...</option>
+                                        <t t-foreach="data_project or []" t-as="project_id">
+                                            <option t-att-value="project_id.id" t-att-selected="timesheets and timesheets.project_id and project_id.id == timesheets.project_id.id">
+                                                <t t-esc="project_id.name" />
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="task_id">Tasks</label>
+                                    <select name="task_id" t-attf-class="form-select js-example-basic-single" disabled="disabled">
+                                        <option value="">select...</option>
+                                        <t t-foreach="data_task or []" t-as="task_id">
+                                            <option t-att-value="task_id.id" t-att-selected="timesheets and timesheets.task_id and task_id.id == timesheets.task_id.id">
+                                                <t t-esc="task_id.name" />
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- [Tab Settings] -->
+                        <ul class="nav nav-tabs" id="myTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="detail-tab" data-bs-toggle="tab" data-bs-target="#detail" type="button" role="tab" aria-controls="detail" aria-selected="true">Details</button>
+                            </li>
+                        </ul>
+                        <!-- [Data Tab Settings] -->
+                        <div class="tab-content" id="myTabContent">
+                            <div class="tab-pane fade show active" id="detail" role="tabpanel" aria-labelledby="detail-tab">
+                                <div class="mt-1 mb-3 col-lg-12" id="detailTableWrapper">
+                                    <t t-call="portal.portal_table">
+                                        <thead>
+                                            <tr height="40px">
+                                                <th>Actual Start</th>
+                                                <th>Actual End</th>
+                                                <th>Employee</th>
+                                                <th>Actual Spent</th>
+                                                <th>Description</th>
+                                                <th>Status</th>
+                                                <th/>
+                                            </tr>
+                                        </thead>
+                                        <tbody t-if="timesheets and timesheets.z_line_ids">
+                                            <t t-set="timesheets_detail" t-value="env['account.analytic.line.request'].sudo().search([('id','in',timesheets.z_line_ids.ids)], order='id desc', limit=20)"/>
+                                            <t t-if="groups_access == 'project_head'">
+                                                <t t-set="timesheets_detail" t-value="env['account.analytic.line.request'].sudo().search([('id','in',timesheets.z_line_ids.ids),('z_employee_id','in',data_employee_content)], order='id desc', limit=20)"/>
+                                            </t>
+                                            <t t-if="groups_access == 'project_engineer'">
+                                                <t t-set="timesheets_detail" t-value="env['account.analytic.line.request'].sudo().search([('id','in',timesheets.z_line_ids.ids),('z_employee_id','=',employee_ids.id)], order='id desc', limit=20)"/>
+                                            </t>
+                                            <t t-foreach="timesheets_detail" t-as="correction">
+                                                <tr style="cursor:pointer; background-color:white;">
+                                                    <td><span t-field="correction.z_current_start_date"/></td>
+                                                    <td><span t-field="correction.z_current_end_date"/></td>
+                                                    <td><span t-field="correction.z_employee_id.name"/></td>
+                                                    <td><span t-field="correction.z_current_time_spent"/></td>
+                                                    <td><span t-field="correction.z_name"
+                                                    style="display: -webkit-box;
+                                                    -webkit-line-clamp: 2;
+                                                    -webkit-box-orient: vertical;
+                                                    overflow: hidden;
+                                                    text-overflow: ellipsis;
+                                                    white-space: normal;"/></td>
+                                                    <t t-set="status_dict" t-value="dict(correction._fields['z_state'].selection)"/>
+                                                    <td><span t-esc="status_dict.get(correction.z_state) if correction.z_state else ''"/></td>
+                                                    <td class="text-center">
+                                                        <t t-if="groups_access in ('project_admin','project_manager','project_head') and correction.z_state == 'waiting_approval'">
+                                                            <button type="button" class="btn btn-primary px-2 py-1 approved-correction-form-btn"
+                                                                t-att-data-correction-id="correction.id">
+                                                                <i class="fa fa-check text-white"/> Approved
+                                                            </button>
+                                                            <button type="button" class="btn btn-primary px-2 py-1 rejected-correction-form-btn"
+                                                                t-att-data-correction-id="correction.id">
+                                                                <i class="fa fa-times text-white"/> Rejected
+                                                            </button>
+                                                        </t>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                        <tfoot class="add-line-button">
+                                            <tr>
+                                                <t t-if="not timesheets.z_line_ids">
+                                                    <td colspan="7" class="o_no_data_line_td text-center">
+                                                        No data
+                                                    </td>
+                                                </t>
+                                            </tr>
+                                        </tfoot>
+                                    </t>
+                                </div>
+                             </div>
+                        </div>
+                        <hr/>
+                        <div id="project_chatter" data-anchor="true">
+                            <h3>Communication history</h3>
+                            <t t-if="timesheets">
+                                <t t-set="object" t-value="timesheets"/>
+                                <t t-set="token" t-value="timesheets.access_token"/>
+                                <t t-call="portal.message_thread"/>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+            </t>
+            <t t-else="">
+                <div class="o_portal_projects_header row mb-4 d-flex align-items-center">
+                    <div class="col-12 d-flex align-items-center">
+                        <div class="d-flex align-items-center">
+                            <h3 class="mb-0 me-2">
+                                Timesheets
+                                <t t-if="not model or model and view_type_settings[model]['label'] == 'Request Timesheets'">
+                                    (<t t-esc="record_number"/>)
+                                </t>
+                                <t t-if="not model or model and view_type_settings[model]['label'] == 'Correction Timesheets'">
+                                    (<t t-esc="record_number"/> Corrections)
+                                </t>
+                            </h3>
+                            <button type="button" style="display: none;" class="btn btn-link p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#settingModal" title="Settings">
+                                <i class="fa fa-cog"/>
+                            </button>
+                            <div class="modal fade" id="settingModal" tabindex="-1" aria-labelledby="settingModalLabel" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="settingModalLabel">Settings</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="list-group">
+                                                <a href="/portal/projects/import_template" class="list-group-item list-group-item-action">
+                                                    <i class="fa fa-download me-2"></i> Download Import Template
+                                                </a>
+                                                <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#importFormCollapse" aria-expanded="false" aria-controls="importFormCollapse">
+                                                    <i class="fa fa-upload me-2"></i> Import Projects
+                                                </a>
+                                                <a href="/portal/projects/export" class="list-group-item list-group-item-action">
+                                                    <i class="fa fa-file-excel-o me-2"></i> Export All Projects
+                                                </a>
+                                            </div>
+                                            <div class="collapse mt-4" id="importFormCollapse">
+                                                <h4>Import Projects</h4>
+                                                <form action="#" method="post" enctype="multipart/form-data">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <div class="mb-3">
+                                                        <label for="import_file" class="form-label">Choose CSV/Excel File</label>
+                                                        <input type="file" class="form-control" id="import_file" name="file" required="required"/>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-primary">Import</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-grow-1 justify-content-end">
+                            <div class="dropdown me-0 mb-2 mb-lg-0">
+                                <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="dropdownViewType" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <span>View: </span><t t-out="view_type_settings.get(model, {}).get('label', 'Timesheets')"/>
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownGrouping">
+                                    <li t-foreach="view_type_settings" t-as="view_line">
+                                        <a role="menuitem" class="dropdown-item" t-att-href="'/portal/timesheets?model=%s' % (view_line)">
+                                            <span t-out="view_type_settings[view_line]['label']"/>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="o_portal_projects_search_controls row align-items-center mb-4">
+                    <div class="col-lg-4 col-md-12 d-flex mb-2 mb-lg-0">
+                        <form action="/portal/timesheets" method="get" class="d-flex w-100">
+                            <input type="hidden" name="filterby" t-att-value="filterby"/>
+                            <input type="hidden" name="sortby" t-att-value="sortby"/>
+                            <input type="hidden" name="groupby" t-att-value="groupby"/>
+                            <div class="input-group">
+                                <input type="text" name="search" class="form-control" t-att-value="search" placeholder="Search timesheets..."/>
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fa fa-search"/>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-lg-8 col-md-12 d-flex flex-wrap justify-content-start justify-content-lg-end align-items-center">
+                        <div class="dropdown me-2 mb-2 mb-lg-0">
+                            <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="dropdownSortingGrouping" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span>Options</span>
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="dropdownSortingGrouping">
+                                <li class="dropdown-header">Filter By</li>
+                                <li t-foreach="searchbar_filter" t-as="filter_key">
+                                    <a role="menuitem" t-attf-class="dropdown-item #{'active' if filter_key == filterby else ''}" t-att-href="'/portal/timesheets?model=%s&amp;filterby=%s&amp;sortby=%s&amp;search=%s&amp;groupby=%s' % (model, filter_key, sortby, search, groupby)">
+                                        <span t-out="searchbar_filter[filter_key]['label']"/>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"/></li>
+                                <li class="dropdown-header">Sort By</li>
+                                <li t-foreach="searchbar_sort" t-as="sort_key">
+                                    <a role="menuitem" t-attf-class="dropdown-item #{'active' if sort_key == sortby else ''}" t-att-href="'/portal/timesheets?model=%s&amp;filterby=%s&amp;sortby=%s&amp;search=%s&amp;groupby=%s' % (model, filterby, sort_key, search, groupby)">
+                                        <span t-out="searchbar_sort[sort_key]['label']"/>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"/></li>
+                                <li class="dropdown-header">Group By</li>
+                                <li t-foreach="searchbar_group" t-as="group_key">
+                                    <a role="menuitem" t-attf-class="dropdown-item #{'active' if group_key == groupby else ''}" t-att-href="'/portal/timesheets?model=%s&amp;filterby=%s&amp;sortby=%s&amp;search=%s&amp;groupby=%s' % (model, filterby, sortby, search, group_key)">
+                                        <span t-out="searchbar_group[group_key]['label']"/>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="d-flex flex-grow-1 justify-content-end">
+                            <t t-if="pager_header and not groupby">
+                                <t t-call="portal.pager">
+                                    <t t-set="pager" t-value="pager_header"/>
+                                </t>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+                <hr/>
+                <t t-if="timesheets or corrections">
+                    <div class="table-responsive">
+                    <t t-call="portal.portal_table">
+                        <table class="table table-striped" style="table-layout: fixed;margin-top: -10px !important;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 150px;">Start Date</th>
+                                    <th style="width: 150px;">End Date</th>
+                                    <th style="width: 150px;">Employee</th>
+                                    <th style="width: 130px;">Project</th>
+                                    <th style="width: 130px;">Task Code</th>
+                                    <th style="width: 180px;">Name of The Tasks</th>
+                                    <th style="width: 150px;">Description</th>
+                                    <th style="width: 130px;">Timespent</th>
+                                    <th style="width: 100px;">Status</th>
+                                    <th style="width: 50px;text-align: center;"/>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-if="timesheets">
+                                    <t t-if="groupby">
+                                        <t t-foreach="timesheets" t-as="group_data">
+                                            <!-- Header Group -->
+                                            <tr class="table-borderless" style="background-color: white; border-bottom: 2px solid #d1d9df;">
+                                                <td colspan="99">
+                                                    <t t-if="isinstance(group_data.get('group_key'), str)">
+                                                        <button class="btn btn-link p-0" type="button"
+                                                            t-attf-data-bs-target="#collapse_group_#{group_data.get('group_key')}_#{group_data.get('group_index')}"
+                                                            data-bs-toggle="collapse" aria-expanded="false">
+                                                            <i class="fa fa-caret-right me-2"></i>
+                                                            <strong>
+                                                                <t t-if="groupby == 'z_state'">
+                                                                    <t t-out="group_data.get('group_value')"/>
+                                                                    (<t t-out="group_data.get('pager').get('total')"/>)
+                                                                </t>
+                                                                <t t-else="">
+                                                                    Undefined (<t t-out="group_data.get('pager').get('total')"/>)
+                                                                </t>
+                                                            </strong>
+                                                        </button>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <button class="btn btn-link p-0" type="button"
+                                                            t-attf-data-bs-target="#collapse_group_#{group_data.get('group_key').id}_#{group_data.get('group_index')}"
+                                                            data-bs-toggle="collapse" aria-expanded="false">
+                                                            <i class="fa fa-caret-right me-2"></i>
+                                                            <strong>
+                                                                <t t-out="group_data.get('group_key').name"/>
+                                                                (<t t-out="group_data.get('pager').get('total')"/>)
+                                                            </strong>
+                                                        </button>
+                                                    </t>
+                                                    <t t-if="group_data.get('pager').get('total') &gt; group_data.get('pager').get('step')">
+                                                        <nav aria-label="pager group" class="d-inline-block ms-3">
+                                                            <ul class="pagination pagination-sm mb-0">
+                                                                <t t-foreach="group_data.get('pager').get('pages')" t-as="p">
+                                                                    <li t-att-class="'page-item %s' % ('active' if p == group_data.get('pager').get('page') else '')">
+                                                                        <a class="page-link"
+                                                                           t-att-href="request.httprequest.path + '?' + (common_query and (common_query + '&amp;') or '') + group_data.get('pager').get('page_param') + '=' + str(p)">
+                                                                            <t t-esc="p"/>
+                                                                        </a>
+                                                                    </li>
+                                                                </t>
+                                                            </ul>
+                                                        </nav>
+                                                    </t>
+                                                </td>
+                                            </tr>
+                                            <!-- Isi project per group -->
+                                            <t t-if="isinstance(group_data.get('group_key'), str)">
+                                                <t t-foreach="group_data.get('timesheets')" t-as="timesheet">
+                                                    <tr t-attf-class="collapse"
+                                                        t-attf-id="collapse_group_#{(group_data.get('group_key') if isinstance(group_data.get('group_key'), str) else 'undefined')}_#{group_data.get('group_index')}"
+                                                        style="cursor:pointer; background-color:white;">
+                                                        <td><span t-field="timesheet.z_timesheet_start_date"/></td>
+                                                        <td><span t-field="timesheet.z_timesheet_end_date"/></td>
+                                                        <td><span t-field="timesheet.employee_id.name"/></td>
+                                                        <td><span t-field="timesheet.project_id.name"/></td>
+                                                        <td><span t-field="timesheet.task_id.name"/></td>
+                                                        <td><span t-field="timesheet.task_id.z_master_task_id.z_name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="timesheet.name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="timesheet.unit_amount"/></td>
+                                                        <t t-set="status_dict" t-value="dict(timesheet._fields['z_state'].selection)"/>
+                                                        <td><span t-esc="status_dict.get(timesheet.z_state) if timesheet.z_state else ''"/></td>
+                                                        <td class="text-center d-none" onclick="event.stopPropagation();">
+                                                            <t t-if="groups_access in ('project_admin','project_manager','project_head') and timesheet.z_state == 'waiting_approval'">
+                                                                <button type="button" class="btn btn-primary px-2 py-1 approved-timesheet-btn"
+                                                                    t-att-data-timesheet-id="timesheet.id">
+                                                                    <i class="fa fa-check text-white"/>
+                                                                </button>
+                                                                <button type="button" class="btn btn-primary px-2 py-1 mt-1 rejected-timesheet-btn"
+                                                                    t-att-data-timesheet-id="timesheet.id">
+                                                                    <i class="fa fa-times text-white"/>
+                                                                </button>
+                                                            </t>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </t>
+                                            <t t-else="">
+                                                <t t-foreach="group_data.get('timesheets')" t-as="timesheet">
+                                                    <tr t-attf-class="collapse"
+                                                        t-attf-id="collapse_group_#{(group_data.get('group_key').id if not isinstance(group_data.get('group_key'), str) else 'undefined')}_#{group_data.get('group_index')}"
+                                                        style="cursor:pointer; background-color:white;">
+                                                        <td><span t-field="timesheet.z_timesheet_start_date"/></td>
+                                                        <td><span t-field="timesheet.z_timesheet_end_date"/></td>
+                                                        <td><span t-field="timesheet.employee_id.name"/></td>
+                                                        <td><span t-field="timesheet.project_id.name"/></td>
+                                                        <td><span t-field="timesheet.task_id.name"/></td>
+                                                        <td><span t-field="timesheet.task_id.z_master_task_id.z_name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="timesheet.name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="timesheet.unit_amount"/></td>
+                                                        <t t-set="status_dict" t-value="dict(timesheet._fields['z_state'].selection)"/>
+                                                        <td><span t-esc="status_dict.get(timesheet.z_state) if timesheet.z_state else ''"/></td>
+                                                        <td class="text-center d-none" onclick="event.stopPropagation();">
+                                                            <t t-if="groups_access in ('project_admin','project_manager','project_head') and timesheet.z_state == 'waiting_approval'">
+                                                                <button type="button" class="btn btn-primary px-2 py-1 approved-timesheet-btn"
+                                                                    t-att-data-timesheet-id="timesheet.id">
+                                                                    <i class="fa fa-check text-white"/>
+                                                                </button>
+                                                                <button type="button" class="btn btn-primary px-2 py-1 mt-1 rejected-timesheet-btn"
+                                                                    t-att-data-timesheet-id="timesheet.id">
+                                                                    <i class="fa fa-times text-white"/>
+                                                                </button>
+                                                            </t>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </t>
+                                        </t>
+                                    </t>
+                                    <t t-else="">
+                                        <t t-foreach="timesheets" t-as="timesheet">
+                                            <tr style="cursor:pointer; background-color:white;" t-attf-onclick="window.location.href='/portal/timesheets/#{timesheet.id}?view_type=form'">
+                                                <td><span t-field="timesheet.z_timesheet_start_date"/></td>
+                                                <td><span t-field="timesheet.z_timesheet_end_date"/></td>
+                                                <td><span t-field="timesheet.employee_id.name"/></td>
+                                                <td><span t-field="timesheet.project_id.name"/></td>
+                                                <td><span t-field="timesheet.task_id.name"/></td>
+                                                <td><span t-field="timesheet.task_id.z_master_task_id.z_name"
+                                                style="display: -webkit-box;
+                                                -webkit-line-clamp: 2;
+                                                -webkit-box-orient: vertical;
+                                                overflow: hidden;
+                                                text-overflow: ellipsis;
+                                                white-space: normal;"/></td>
+                                                <td><span t-field="timesheet.name"
+                                                style="display: -webkit-box;
+                                                -webkit-line-clamp: 2;
+                                                -webkit-box-orient: vertical;
+                                                overflow: hidden;
+                                                text-overflow: ellipsis;
+                                                white-space: normal;"/></td>
+                                                <td><span t-field="timesheet.unit_amount"/></td>
+                                                <t t-set="status_dict" t-value="dict(timesheet._fields['z_state'].selection)"/>
+                                                <td><span t-esc="status_dict.get(timesheet.z_state) if timesheet.z_state else ''"/></td>
+                                                <td class="text-center d-none" onclick="event.stopPropagation();">
+                                                    <t t-if="groups_access in ('project_admin','project_manager','project_head') and timesheet.z_state == 'waiting_approval'">
+                                                        <button type="button" class="btn btn-primary px-2 py-1 approved-timesheet-btn"
+                                                            t-att-data-timesheet-id="timesheet.id">
+                                                            <i class="fa fa-check text-white"/>
+                                                        </button>
+                                                        <button type="button" class="btn btn-primary px-2 py-1 mt-1 rejected-timesheet-btn"
+                                                            t-att-data-timesheet-id="timesheet.id">
+                                                            <i class="fa fa-times text-white"/>
+                                                        </button>
+                                                    </t>
+                                                    <button type="button"
+                                                        class="btn btn-primary mt-1 px-2 py-1"
+                                                        data-bs-toggle="modal"
+                                                        t-att-data-bs-target="'#correctionType' + str(timesheet.id)">
+                                                        <i class="fa fa-edit text-white"/>
+                                                    </button>
+                                                    <div class="modal fade" t-att-id="'correctionType' + str(timesheet.id)" tabindex="-1">
+                                                        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+                                                            <div class="modal-content">
+                                                                <form action="/portal/timesheets/#{timesheet.id}" method="post" id="timesheet_timesheet_correction_form">
+                                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                    <input type="hidden" name="project_id" t-att-value="timesheet and timesheet.project_id.id or None"/>
+                                                                    <input type="hidden" name="timesheet_id" t-att-value="timesheet and timesheet.id or None"/>
+                                                                    <input type="hidden" name="model" value="account.analytic.line.request"/>
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title">Timesheet Correction</h5>
+                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"/>
+                                                                    </div>
+                                                                    <div class="modal-body text-start">
+                                                                        <div class="alert alert-secondary py-2 mb-3">
+                                                                            <strong>Original</strong>
+                                                                            = stored now.
+                                                                            <br/>
+                                                                            <strong>Actual (New)</strong>
+                                                                            = proposed change (pending approval).
+                                                                        </div>
+                                                                        <div class="row">
+                                                                            <div class="col-lg-6">
+                                                                                <div class="mb-3">
+                                                                                    <label for="z_ori_start_date" class="form-label">Original Start Date</label>
+                                                                                    <input type="datetime-local" class="form-control" name="z_ori_start_date" t-att-value="timesheet.z_timesheet_start_date" disabled="disabled"/>
+                                                                                </div>
+                                                                                <div class="mb-3">
+                                                                                    <label for="z_ori_end_date" class="form-label">Original End Date</label>
+                                                                                    <input type="datetime-local" class="form-control" name="z_ori_end_date" t-att-value="timesheet.z_timesheet_end_date" disabled="disabled"/>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-lg-6">
+                                                                                <div class="mb-3">
+                                                                                    <label for="z_current_start_date" class="form-label">Actual Start Date</label>
+                                                                                    <input type="datetime-local" class="form-control" name="z_current_start_date"/>
+                                                                                </div>
+                                                                                <div class="mb-3">
+                                                                                    <label for="z_current_end_date" class="form-label">Actual End Date</label>
+                                                                                    <input type="datetime-local" class="form-control" name="z_current_end_date"/>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="mb-3">
+                                                                            <label for="name" class="form-label">Description</label>
+                                                                            <input type="text" class="form-control" name="name"/>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="modal-footer">
+                                                                        <button type="submit" class="btn btn-primary" id="saveTimesheetCorrectionNamesBtn">Submit</button>
+                                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                    </div>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </t>
+                                </t>
+                                <t t-if="corrections">
+                                    <t t-if="groupby">
+                                        <t t-foreach="corrections" t-as="group_data">
+                                            <!-- Header Group -->
+                                            <tr class="table-borderless" style="background-color: white; border-bottom: 2px solid #d1d9df;">
+                                                <td colspan="99">
+                                                    <t t-if="isinstance(group_data.get('group_key'), str)">
+                                                        <button class="btn btn-link p-0" type="button"
+                                                            t-attf-data-bs-target="#collapse_group_#{group_data.get('group_key')}_#{group_data.get('group_index')}"
+                                                            data-bs-toggle="collapse" aria-expanded="false">
+                                                            <i class="fa fa-caret-right me-2"></i>
+                                                            <strong>
+                                                                <t t-if="groupby == 'z_state'">
+                                                                    <t t-out="group_data.get('group_value')"/>
+                                                                    (<t t-out="group_data.get('pager').get('total')"/>)
+                                                                </t>
+                                                                <t t-else="">
+                                                                    Undefined (<t t-out="group_data.get('pager').get('total')"/>)
+                                                                </t>
+                                                            </strong>
+                                                        </button>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <button class="btn btn-link p-0" type="button"
+                                                            t-attf-data-bs-target="#collapse_group_#{group_data.get('group_key').id}_#{group_data.get('group_index')}"
+                                                            data-bs-toggle="collapse" aria-expanded="false">
+                                                            <i class="fa fa-caret-right me-2"></i>
+                                                            <strong>
+                                                                <t t-out="group_data.get('group_key').name"/>
+                                                                (<t t-out="group_data.get('pager').get('total')"/>)
+                                                            </strong>
+                                                        </button>
+                                                    </t>
+                                                    <t t-if="group_data.get('pager').get('total') &gt; group_data.get('pager').get('step')">
+                                                        <nav aria-label="pager group" class="d-inline-block ms-3">
+                                                            <ul class="pagination pagination-sm mb-0">
+                                                                <t t-foreach="group_data.get('pager').get('pages')" t-as="p">
+                                                                    <li t-att-class="'page-item %s' % ('active' if p == group_data.get('pager').get('page') else '')">
+                                                                        <a class="page-link"
+                                                                           t-att-href="request.httprequest.path + '?' + (common_query and (common_query + '&amp;') or '') + group_data.get('pager').get('page_param') + '=' + str(p)">
+                                                                            <t t-esc="p"/>
+                                                                        </a>
+                                                                    </li>
+                                                                </t>
+                                                            </ul>
+                                                        </nav>
+                                                    </t>
+                                                </td>
+                                            </tr>
+                                            <!-- Isi project per group -->
+                                            <t t-if="isinstance(group_data.get('group_key'), str)">
+                                                <t t-foreach="group_data.get('corrections')" t-as="correction">
+                                                    <tr t-attf-class="collapse"
+                                                        t-attf-id="collapse_group_#{(group_data.get('group_key') if isinstance(group_data.get('group_key'), str) else 'undefined')}_#{group_data.get('group_index')}"
+                                                        style="cursor:pointer; background-color:white;">
+                                                        <td><span t-field="correction.z_current_start_date"/></td>
+                                                        <td><span t-field="correction.z_current_end_date"/></td>
+                                                        <td><span t-field="correction.z_employee_id.name"/></td>
+                                                        <td><span t-field="correction.z_timesheet_id.project_id.name"/></td>
+                                                        <td><span t-field="correction.z_timesheet_id.task_id.name"/></td>
+                                                        <td><span t-field="correction.z_timesheet_id.task_id.z_master_task_id.z_name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="correction.z_name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="correction.z_current_time_spent"/></td>
+                                                        <t t-set="status_dict" t-value="dict(correction._fields['z_state'].selection)"/>
+                                                        <td><span t-esc="status_dict.get(correction.z_state) if correction.z_state else ''"/></td>
+                                                        <td class="text-center">
+                                                            <t t-if="groups_access in ('project_admin','project_manager','project_head') and correction.z_state == 'waiting_approval'">
+                                                                <button type="button" class="btn btn-primary px-2 py-1 approved-correction-btn"
+                                                                    t-att-data-correction-id="correction.id">
+                                                                    <i class="fa fa-check text-white"/>
+                                                                </button>
+                                                                <button type="button" class="btn btn-primary px-2 py-1 mt-1 rejected-correction-btn"
+                                                                    t-att-data-correction-id="correction.id">
+                                                                    <i class="fa fa-times text-white"/>
+                                                                </button>
+                                                            </t>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </t>
+                                            <t t-else="">
+                                                <t t-foreach="group_data.get('corrections')" t-as="correction">
+                                                    <tr t-attf-class="collapse"
+                                                        t-attf-id="collapse_group_#{(group_data.get('group_key').id if not isinstance(group_data.get('group_key'), str) else 'undefined')}_#{group_data.get('group_index')}"
+                                                        style="cursor:pointer; background-color:white;">
+                                                        <td><span t-field="correction.z_current_start_date"/></td>
+                                                        <td><span t-field="correction.z_current_end_date"/></td>
+                                                        <td><span t-field="correction.z_employee_id.name"/></td>
+                                                        <td><span t-field="correction.z_timesheet_id.project_id.name"/></td>
+                                                        <td><span t-field="correction.z_timesheet_id.task_id.name"/></td>
+                                                        <td><span t-field="correction.z_timesheet_id.task_id.z_master_task_id.z_name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="correction.z_name"
+                                                        style="display: -webkit-box;
+                                                        -webkit-line-clamp: 2;
+                                                        -webkit-box-orient: vertical;
+                                                        overflow: hidden;
+                                                        text-overflow: ellipsis;
+                                                        white-space: normal;"/></td>
+                                                        <td><span t-field="correction.z_current_time_spent"/></td>
+                                                        <t t-set="status_dict" t-value="dict(correction._fields['z_state'].selection)"/>
+                                                        <td><span t-esc="status_dict.get(correction.z_state) if correction.z_state else ''"/></td>
+                                                        <td class="text-center">
+                                                            <t t-if="groups_access in ('project_admin','project_manager','project_head') and correction.z_state == 'waiting_approval'">
+                                                                <button type="button" class="btn btn-primary px-2 py-1 approved-correction-btn"
+                                                                    t-att-data-correction-id="correction.id">
+                                                                    <i class="fa fa-check text-white"/>
+                                                                </button>
+                                                                <button type="button" class="btn btn-primary px-2 py-1 mt-1 rejected-correction-btn"
+                                                                    t-att-data-correction-id="correction.id">
+                                                                    <i class="fa fa-times text-white"/>
+                                                                </button>
+                                                            </t>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </t>
+                                        </t>
+                                    </t>
+                                    <t t-else="">
+                                        <t t-foreach="corrections" t-as="correction">
+                                            <tr style="cursor:pointer; background-color:white;">
+                                                <td><span t-field="correction.z_current_start_date"/></td>
+                                                <td><span t-field="correction.z_current_end_date"/></td>
+                                                <td><span t-field="correction.z_employee_id.name"/></td>
+                                                <td><span t-field="correction.z_timesheet_id.project_id.name"/></td>
+                                                <td><span t-field="correction.z_timesheet_id.task_id.name"/></td>
+                                                <td><span t-field="correction.z_timesheet_id.task_id.z_master_task_id.z_name"
+                                                style="display: -webkit-box;
+                                                -webkit-line-clamp: 2;
+                                                -webkit-box-orient: vertical;
+                                                overflow: hidden;
+                                                text-overflow: ellipsis;
+                                                white-space: normal;"/></td>
+                                                <td><span t-field="correction.z_name"
+                                                style="display: -webkit-box;
+                                                -webkit-line-clamp: 2;
+                                                -webkit-box-orient: vertical;
+                                                overflow: hidden;
+                                                text-overflow: ellipsis;
+                                                white-space: normal;"/></td>
+                                                <td><span t-field="correction.z_current_time_spent"/></td>
+                                                <t t-set="status_dict" t-value="dict(correction._fields['z_state'].selection)"/>
+                                                <td><span t-esc="status_dict.get(correction.z_state) if correction.z_state else ''"/></td>
+                                                <td class="text-center">
+                                                    <t t-if="groups_access in ('project_admin','project_manager','project_head') and correction.z_state == 'waiting_approval'">
+                                                        <button type="button" class="btn btn-primary px-2 py-1 approved-correction-btn"
+                                                            t-att-data-correction-id="correction.id">
+                                                            <i class="fa fa-check text-white"/>
+                                                        </button>
+                                                        <button type="button" class="btn btn-primary px-2 py-1 mt-1 rejected-correction-btn"
+                                                            t-att-data-correction-id="correction.id">
+                                                            <i class="fa fa-times text-white"/>
+                                                        </button>
+                                                    </t>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </t>
+                                </t>
+                            </tbody>
+                        </table>
+                    </t>
+                </div>
+                </t>
+                <t t-if="not model or model and view_type_settings[model]['label'] == 'Request Timesheets' and not timesheets">
+                    <div class="alert alert-warning" role="alert">
+                        <img src="/web/static/img/folder.svg"/>
+                        There are no timesheets.
+                    </div>
+                </t>
+                <t t-if="model and view_type_settings[model]['label'] == 'Correction Timesheets' and not corrections">
+                    <div class="alert alert-warning" role="alert">
+                        <img src="/web/static/img/folder.svg"/>
+                        There are no corrections.
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

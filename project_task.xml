@@ -222,7 +222,7 @@
                     <button name="action_request_timesheet" string="Request Timesheet" invisible="z_project_task_state in ('approved1','approved2','done') or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
                     <button name="action_create_subtask" string="Create Subtasks" invisible="z_project_task_state in ('approved1','approved2','done') or z_type_non_project == 'others'" type="object" class="oe_highlight"/>
                     <button name="action_bobot_sync" string="Bobot Sync" invisible="1" type="object" class="oe_highlight"/>
-                    <button name="action_bobot_calc_rate" string="Bobot Calc Rate" invisible="z_type_non_project" type="object" class="oe_highlight"/>
+                    <button name="action_bobot_calc_rate" string="Normalisasi Bobot" invisible="z_type_non_project" type="object" class="oe_highlight"/>
                     <field name="z_running_duration" widget="RealtimeDatetime" invisible="not z_time_start" class="align-self-center me-auto ms-2 h2"/>
                     <field name="z_time_start" class="align-self-center d-none me-auto ms-2 h2"/>
                     <field name="z_project_task_state" invisible="z_type_non_project == 'others'" widget="statusbar" statusbar_visible="new,in_progress,done"/>
@@ -334,6 +334,7 @@
                     <field name="z_quality_entry" invisible="z_type_non_project"/>
                     <field name="z_progress_project" widget="progressbar" invisible="z_type_non_project" readonly="0"/>
                     <field name="z_progress_project_entry" invisible="not z_end_task_ok or z_type_non_project"/>
+                    <field name="z_parent_bobot"/>
                     <field name="z_bobot" invisible="1"/>
                     <field name="z_bobot_entry" invisible="z_type_non_project"/>
                     <field name="z_group_type_project" invisible="not z_type_non_project or z_type_non_project == 'ticket'"/>
@@ -385,6 +386,7 @@
                             <field name="z_mandays_budget_entry" sum="total" width="120px"/>
                             <field name="z_actual_budget_mandays" sum="total" width="120px"/>
                             <field name="z_progress_project" avg="total" string="Progress (%)" digits="[3,0]"/>
+                            <field name="z_parent_bobot" widget="130px"/>
                             <field name="z_bobot" optional="hide" sum="total"/>
                             <field name="z_bobot_entry" sum="total"/>
                             <field name="z_head_assignes_ids" widget="many2many_tags" optional="hide"/>
@@ -404,6 +406,15 @@
                                 <field name="z_invoice_date"/>
                                 <field name="z_amount_total"/>
                                 <field name="z_state"/>
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Approval Notification">
+                        <field nolabel="1" name="z_approval_notif_ids" options="{'always_reload':True}">
+                            <list string="Lines" editable="bottom">
+                                <field name="z_approval_id" optional="hide"/>
+                                <field name="z_name_of_employee_id"/>
+                                <field name="z_is_read_ok"/>
                             </list>
                         </field>
                     </page>
@@ -432,6 +443,7 @@
                     <field name="z_mandays_budget_entry" sum="total" width="120px"/>
                     <field name="z_actual_budget_mandays" sum="total" width="120px"/>
                     <field name="z_progress_project" avg="total" string="Progress (%)"/>
+                    <field name="z_parent_bobot"/>
                     <field name="z_bobot" optional="hide" sum="total"/>
                     <field name="z_bobot_entry" sum="total"/>
                     <field name="z_head_assignes_ids" widget="many2many_tags"/>

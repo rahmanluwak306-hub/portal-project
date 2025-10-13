@@ -3,10 +3,10 @@
 
     <template id="portal_timesheet_embed" name="Portal Timesheet Embed">
 
-        <t t-set="pending_new"
-           t-value="pending_requests.filtered(lambda r: req_disp_map.get(r.id, {}).get('type') == 'new')"/>
-        <t t-set="pending_corr"
-           t-value="pending_requests.filtered(lambda r: req_disp_map.get(r.id, {}).get('type') == 'correction')"/>
+        <!--        <t t-set="pending_new"-->
+        <!--           t-value="pending_requests.filtered(lambda r: req_disp_map.get(r.id, {}).get('type') == 'new')"/>-->
+        <!--        <t t-set="pending_corr"-->
+        <!--           t-value="pending_requests.filtered(lambda r: req_disp_map.get(r.id, {}).get('type') == 'correction')"/>-->
 
         <style>
             .ts-btn-big { padding:.55rem .95rem !important; font-size:.85rem !important; font-weight:600; }
@@ -24,12 +24,16 @@
                 All
             </button>
         </div>
+        <t t-set="pending_corr"
+           t-value="pending_requests.filtered(lambda r: req_disp_map.get(r.id, {}).get('type') == 'correction')"/>
 
-        <t t-set="section_defs" t-value="[{'key':'pending_new','title':'Pending New Entries','records': pending_new},
- {'key':'pending_corr','title':'Pending Corrections','records': pending_corr},
- {'key':'rejected','title':'Rejected (Last 20)','records': rejected_requests},
- {'key':'approved','title':'Approved (Last 20)','records': approved_requests},
-]"/>
+
+        <t t-set="section_defs" t-value="[
+              {'key':'pending_new','title':'Pending New Entries','records': pending_new},
+              {'key':'pending_corr','title':'Pending Corrections','records': pending_corr},
+              {'key':'rejected','title':'Rejected (Last 20)','records': rejected_requests},
+              {'key':'approved','title':'Approved (Last 20)','records': approved_requests},
+        ]"/>
 
         <t t-foreach="section_defs" t-as="sec">
             <t t-set="recset" t-value="sec.get('records')"/>
@@ -53,7 +57,7 @@
                             <t t-foreach="recset" t-as="rq">
                                 <t t-set="rinfo" t-value="req_disp_map.get(rq.id) or {}"/>
                                 <t t-set="emp_name"
-                                   t-value="(rq.z_employee_id and rq.z_employee_id.name) or (rq.z_timesheet_id and rq.z_timesheet_id.employee_id and rq.z_timesheet_id.employee_id.name) or rq.create_uid.name"/>
+                                   t-value="(req_disp_map.get(rq.id) and req_disp_map.get(rq.id).get('emp_name')) or (rq.z_employee_id and rq.z_employee_id.name) or (rq.z_timesheet_id and rq.z_timesheet_id.employee_id and rq.z_timesheet_id.employee_id.name) or rq.create_uid.name"/>
                                 <div class="col-12">
                                     <div class="card shadow-sm border-0" style="border-left:4px solid #e1e5e9;"
                                          t-att-data-req-id="rq.id">
@@ -195,19 +199,37 @@
                                         <span t-field="ts.name"/>
                                     </td>
                                     <td>
-                                        <t t-set="mins" t-value="int(round((ts.unit_amount or 0)*60))"/>
+                                        <t t-set="hours_val"
+                                           t-value="(zeiten_map.get(ts.id) and zeiten_map.get(ts.id).get('hours')) or (ts.unit_amount or 0.0)"/>
+                                        <t t-set="mins" t-value="int(round((hours_val or 0)*60))"/>
                                         <t t-set="hh" t-value="mins//60"/>
                                         <t t-set="mm" t-value="mins%60"/>
                                         <span>
                                             <t t-esc="'%02d:%02d' % (hh, mm)"/>
                                             <small class="text-muted d-block">(
-                                                <t t-esc="round(ts.unit_amount or 0,2)"/>
+                                                <t t-esc="round(hours_val or 0,2)"/>
                                                 h)
                                             </small>
                                         </span>
                                     </td>
                                     <td>
-                                        <t t-esc="ts.z_state or ''"/>
+                                        <t t-if="ts.z_state=='approved'">
+                                            <span class="badge bg-success">Approved</span>
+                                        </t>
+                                        <t t-elif="ts.z_state=='waiting_approval'">
+                                            <span class="badge bg-warning text-dark">Waiting</span>
+                                        </t>
+                                        <t t-elif="ts.z_state=='rejected'">
+                                            <span class="badge bg-danger">Rejected</span>
+                                        </t>
+                                        <t t-elif="ts.z_state=='draft'">
+                                            <span class="badge bg-secondary">Draft</span>
+                                        </t>
+                                        <t t-else="">
+                                            <span class="badge bg-light text-dark">
+                                                <t t-esc="ts.z_state or ''"/>
+                                            </span>
+                                        </t>
                                     </td>
                                     <td>
                                         <button type="button"
@@ -279,13 +301,15 @@
                                     </div>
                                     <div class="mt-2">
                                         <strong>Duration:</strong>
-                                        <t t-set="mins" t-value="int(round((ts.unit_amount or 0)*60))"/>
+                                        <t t-set="hours_val"
+                                           t-value="(zeiten_map.get(ts.id) and zeiten_map.get(ts.id).get('hours')) or (ts.unit_amount or 0.0)"/>
+                                        <t t-set="mins" t-value="int(round((hours_val or 0)*60))"/>
                                         <t t-set="hh" t-value="mins//60"/>
                                         <t t-set="mm" t-value="mins%60"/>
                                         <span>
                                             <t t-esc="'%02d:%02d' % (hh, mm)"/>
                                             <small class="text-muted d-block">(
-                                                <t t-esc="round(ts.unit_amount or 0,2)"/>
+                                                <t t-esc="round(hours_val or 0,2)"/>
                                                 h)
                                             </small>
                                         </span>
@@ -362,13 +386,18 @@
             </script>
             <script type="text/javascript">
                 <![CDATA[
+                    // Popup error dari querystring ?error=
                     document.addEventListener('DOMContentLoaded', function(){
                       const params = new URLSearchParams(window.location.search);
                       const err = params.get('error');
                       if(err){
-                        // normalize html entities
                         const msg = err.replace(/&gt;/g,'>').replace(/&lt;/g,'<');
                         alert(msg);
+                      }
+                      // Popup error dari server (flash_error)
+                      const fe = document.getElementById('flash_error_msg');
+                      if (fe && fe.value) {
+                        alert(fe.value);
                       }
                     });
                 ]]>
@@ -400,7 +429,6 @@
                     });
                     ]]>
             </script>
-
 
             <!-- ================== MAIN SCRIPT ================== -->
             <script type="text/javascript">
@@ -470,56 +498,55 @@
                         });
                       }
 
-                      // Others Mode: atur field umum; TIDAK menyentuh maintenance-only; TIDAK menyembunyikan master-select; TIDAK memaksa free-text
-                        function toggleOthersMode(){
-                          const dropdownVal = ($('#z_type_non_project_select').val() || '');
-                          const isOthers = (dropdownVal === 'others') || !!window._isOthersProject;
+                      // Others Mode
+                      function toggleOthersMode(){
+                        const dropdownVal = ($('#z_type_non_project_select').val() || '');
+                        const isOthers = (dropdownVal === 'others') || !!window._isOthersProject;
 
-                          const $plannedStart = $('input[name="z_planned_start_date"]');
-                          const $plannedEnd   = $('input[name="z_planned_end_date"]');
+                        const $plannedStart = $('input[name="z_planned_start_date"]');
+                        const $plannedEnd   = $('input[name="z_planned_end_date"]');
 
-                          // Daftar selector kontrol (bukan wrapper .mb-3)
-                          const ctrls = [
-                            'select[name="z_head_assignes_ids"]',
-                            'select[name="z_member_assignes_ids"]',
-                            'select[name="tag_ids"]',
-                            'input[name="z_planned_start_date"]',
-                            'input[name="z_planned_end_date"]',
-                            'input[name="z_actual_start_date"]',
-                            'input[name="z_actual_end_date"]',
-                            'input[name="z_bobot_entry"]',
-                            'input[name="z_mandays_budget_entry"]',
-                            'input[name="z_actual_budget_mandays"]',
-                            'input[name="z_progress_project"]',
-                            'input[name="z_progress_project_entry"]',
-                            'input[name="z_quality_entry"]'
-                          ];
-                          ctrls.forEach(sel=>{
-                            const $el = $(sel);
-                            const $blk = $el.closest('.mb-3');
-                            if(!$blk.length) return;
-                            if(isOthers){
-                              $blk.hide();
-                              $el.prop('disabled', true);            // penting: cegah terkirim
-                              if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
-                            }else{
-                              $blk.show();
-                              $el.prop('disabled', false);           // aktifkan kembali
-                              if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
-                            }
-                          });
-
-                          // Required untuk planned dates hanya non-others
+                        const ctrls = [
+                          'select[name="z_head_assignes_ids"]',
+                          'select[name="z_member_assignes_ids"]',
+                          'select[name="tag_ids"]',
+                          'input[name="z_planned_start_date"]',
+                          'input[name="z_planned_end_date"]',
+                          'input[name="z_actual_start_date"]',
+                          'input[name="z_actual_end_date"]',
+                          'input[name="z_bobot_entry"]',
+                          'input[name="z_mandays_budget_entry"]',
+                          'input[name="z_actual_budget_mandays"]',
+                          'input[name="z_progress_project"]',
+                          'input[name="z_progress_project_entry"]',
+                          'input[name="z_quality_entry"]'
+                        ];
+                        ctrls.forEach(sel=>{
+                          const $el = $(sel);
+                          const $blk = $el.closest('.mb-3');
+                          if(!$blk.length) return;
                           if(isOthers){
-                            $plannedStart.removeAttr('required');
-                            $plannedEnd.removeAttr('required');
+                            $blk.hide();
+                            $el.prop('disabled', true);
+                            if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
                           }else{
-                            if($plannedStart.data('required')) $plannedStart.attr('required', true);
-                            if($plannedEnd.data('required'))   $plannedEnd.attr('required', true);
+                            $blk.show();
+                            $el.prop('disabled', false);
+                            if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
                           }
+                        });
 
-                          toggleCustomerVisibility(isOthers);
+                        // Required untuk planned dates hanya non-others
+                        if(isOthers){
+                          $plannedStart.removeAttr('required');
+                          $plannedEnd.removeAttr('required');
+                        }else{
+                          if($plannedStart.data('required')) $plannedStart.attr('required', true);
+                          if($plannedEnd.data('required'))   $plannedEnd.attr('required', true);
                         }
+
+                        toggleCustomerVisibility(isOthers);
+                      }
 
                       // Toggle Master Task (select vs free-text)
                       function toggleMasterCreate(scope){
@@ -603,9 +630,8 @@
 
                         function fill($el, selected){
                           const hadSelect2 = $el.hasClass('select2-hidden-accessible');
-                          if(hadSelect2){ $el.off('select2:select'); } // prevent duplicate handlers if any
+                          if(hadSelect2){ $el.off('select2:select'); }
                           $el.empty();
-                          // Build options
                           const frag = document.createDocumentFragment();
                           team.forEach(emp=>{
                             const opt = new Option(emp.name, String(emp.id), false, selected.includes(String(emp.id)));
@@ -613,7 +639,7 @@
                           });
                           $el.append(frag);
                           if(hadSelect2){
-                            $el.trigger('change.select2'); // refresh select2 rendering
+                            $el.trigger('change.select2');
                           }else{
                             $el.trigger('change');
                           }
@@ -657,7 +683,6 @@
                           $customerDisplay.val(info.partner_name || '');
                           $partnerHidden.val(info.partner_id || '');
                           window._isOthersProject = (info.z_group_type_project === 'non_project' && info.z_type_non_project === 'others');
-                          // Sinkronkan dropdown Others jika project memang Others
                           const $sel = $('#z_type_non_project_select');
                           if($sel.length){
                             const target = window._isOthersProject ? 'others' : '';
@@ -678,21 +703,55 @@
                         }).fail(function(){ applyProjectInfo(null); });
                       }
 
+
+                      function updateBobotValidity(scope){
+                        const $s = scope ? $(scope) : $(document);
+                        const $ratio = $s.find('input[data-bobot-total]');
+                        const $entry = $s.find('input[name="z_bobot_entry"]');
+                        if(!$ratio.length || !$entry.length){ return; }
+
+                        const usedBase  = parseFloat($ratio.data('bobot-used'))  || 0;
+                        const total     = parseFloat($ratio.data('bobot-total')) || 0;
+                        const current   = parseFloat($entry.data('current-bobot')) || 0; // hanya edit
+                        const val       = parseFloat($entry.val()) || 0;
+
+                        // Jika edit: used = usedBase - current + val
+                        // Jika new:  used = usedBase + val (karena current belum ada)
+                        const used = $entry.is('[data-current-bobot]') ? (usedBase - current + val) : (usedBase + val);
+
+                        const needRed  = (total > 0) && (used < total);
+                        const over     = (total > 0) && (used > total);
+
+                        $entry.toggleClass('is-invalid', (needRed || over));
+                        if (needRed) {
+                          $entry.attr('title', `Bobot belum penuh: ${used.toFixed(2)} / ${total.toFixed(2)}`);
+                        } else if (over) {
+                          $entry.attr('title', `Bobot melebihi total: ${used.toFixed(2)} / ${total.toFixed(2)}`);
+                        } else {
+                          $entry.attr('title', '');
+                        }
+                      }
+                      updateBobotValidity(document);
+                      $(document).on('input change','input[name="z_bobot_entry"]', function(){
+                        updateBobotValidity(document);
+                      });
+
+
+
                       /* ========== Init bindings ========== */
-                      // Customer kini dikontrol via toggleOthersMode() -> toggleCustomerVisibility()
-                      applyProjectTypeHiding(null);          // Default: sembunyikan maintenance-only sampai project terdeteksi
+                      applyProjectTypeHiding(null);
 
                       $(document).on('change','#z_type_non_project_select', toggleOthersMode);
                       toggleOthersMode();
-
                       toggleMasterCreate(document);
+
                       attachUnsavedWarning('#new_task_form');
                       attachUnsavedWarning('#edit_task_form');
 
                       $(document).on('change','select[name="project_id"]', function(){
                         const pid = $(this).val();
                         fetchAndApplyProject(pid);
-                        fetchProjectTeam(pid); // jaga-jaga kalau info endpoint delay
+                        fetchProjectTeam(pid);
                       });
 
                       // Initial apply project + team
@@ -702,11 +761,10 @@
                         fetchAndApplyProject(ctxProjectId);
                         fetchProjectTeam(ctxProjectId);
                       } else {
-                        // Pastikan state awal Customer sesuai Others dropdown kosong (anggap non-others)
                         toggleOthersMode();
                       }
 
-                      // Handler New Subtask: bawa master parent yang sedang dipilih (kalau ada) sebagai hint
+                      // Handler New Subtask
                       $(document).on('click', '.btn-new-subtask', function(e){
                         e.preventDefault();
                         const parentId = $(this).data('parent-id');
@@ -717,157 +775,21 @@
                         window.location.href = url;
                       });
 
-
                       function initDateTimePickers24(scope){
-                      const $s = scope ? $(scope) : $(document);
-                      const opts = { enableTime:true, time_24hr:true, dateFormat:"Y-m-d H:i", allowInput:true };
-                      $s.find('input.dt-24').each(function(){
-                        if (this._flatpickr) return;
-                        flatpickr(this, opts);
-                      });
-                    }
-                    initDateTimePickers24(document);
-
-                    $(document).on('shown.bs.modal', '#requestTimesheetModal,#timesheetModal', function(){
-                      initDateTimePickers24(this);
-                    });
-
-
-                    $(document).on('click', '.btn-calculate-bobot', function(){
-                      const taskId = $(this).data('task-id');
-                      const csrf = $('input[name="csrf_token"]').val() || '';
-                      const $btn = $(this).prop('disabled', true).addClass('disabled');
-                      $.post(`/portal/task/${taskId}/calculate-bobot`, { csrf_token: csrf }, function(r){
-                        if(r && r.success){
-                          alert('Perhitungan bobot berhasil.');
-                          location.reload();
-                        }else{
-                          alert(r && r.error ? r.error : 'Perhitungan bobot gagal.');
-                        }
-                      }, 'json').always(function(){
-                        $btn.prop('disabled', false).removeClass('disabled');
-                      });
-                    });
-
-                    // Live hint untuk Request
-                    function calcHoursDiff(startStr,endStr){
-                      if(!startStr||!endStr) return 0;
-                      try{
-                        const s=new Date(startStr.replace('T',' '));
-                        const e=new Date(endStr.replace('T',' '));
-                        const diffMs=e.getTime()-s.getTime();
-                        if(isNaN(diffMs)||diffMs<=0) return 0;
-                        return diffMs/3600000;
-                      }catch(e){return 0;}
-                    }
-                    function updateRequestHoursHint(){
-                      const h = calcHoursDiff($('input[name="start_date"]').val(), $('input[name="end_date"]').val());
-                      $('#request_hours_hint').text(h ? `Duration: ${h.toFixed(2)} h` : '');
-                    }
-                    $(document).on('change', 'input[name="start_date"], input[name="end_date"]', updateRequestHoursHint);
-                    $('#requestTimesheetModal').on('shown.bs.modal', updateRequestHoursHint);
-
-                    // Pastikan hidden hours untuk Correction terisi
-                    function updateCorrectionHours(){
-                      const h = calcHoursDiff($('#timesheet_start_date').val(), $('#timesheet_end_date').val());
-                      if(!isNaN(h) && isFinite(h)){
-                        $('#timesheet_hours').val(h.toFixed(2));
-                      }
-                    }
-                    $('#timesheet_start_date,#timesheet_end_date').on('change', updateCorrectionHours);
-                    $('#timesheetModal').on('shown.bs.modal', updateCorrectionHours);
-
-                      /* ========== TIME FORMAT PATCH (tetap) ========== */
-                    const ENABLE_TIME_SHIFT = true;
-                    function toLocalFromUtc(utcIso){
-                      if(!utcIso) return '';
-                      try{
-                        let iso = utcIso.trim().replace(' ','T');
-                        if(!/[zZ]|[+\-]\d{2}:?\d{2}$/.test(iso)){ iso += 'Z'; } // pastikan sebagai UTC
-                        const d = new Date(iso);
-                        if(isNaN(d.getTime())) return utcIso;
-                        // Format 24 jam, ikut timezone browser (WIB/WITA/WIT tergantung device)
-                        const fmt = new Intl.DateTimeFormat(undefined, {
-                          year:'2-digit', month:'2-digit', day:'2-digit',
-                          hour:'2-digit', minute:'2-digit', hour12:false
+                        const $s = scope ? $(scope) : $(document);
+                        const opts = { enableTime:true, time_24hr:true, dateFormat:"Y-m-d H:i", allowInput:true };
+                        $s.find('input.dt-24').each(function(){
+                          if (this._flatpickr) return;
+                          flatpickr(this, opts);
                         });
-                        // Hasil default locale punya separator lokal; kita normalisasi dd/mm/yy HH:MM
-                        const parts = fmt.formatToParts(d).reduce((acc,p)=>{acc[p.type]=p.value;return acc;}, {});
-                        const dd = parts.day || '';
-                        const mm = parts.month || '';
-                        const yy = parts.year || '';
-                        const HH = parts.hour || '';
-                        const MM = parts.minute || '';
-                        return `${dd}/${mm}/20${yy} ${HH}:${MM}`;
-                      }catch(e){ return utcIso; }
-                    }
-                    function reformatAllDateSpans(scope){
-                      if(!ENABLE_TIME_SHIFT) return;
-                      const $scope = scope ? $(scope) : $(document);
-                      $scope.find('.timesheet-datetime').each(function(){
-                        const $el=$(this);
-                        if($el.attr('data-shifted')==='1') return;
-                        if($el.data('origin')!=='utc') return;
-                        const raw=$el.attr('data-utc');
-                        if(raw){
-                          $el.text(toLocalFromUtc(raw));
-                          $el.attr('data-shifted','1');
-                        }
+                      }
+                      initDateTimePickers24(document);
+
+                      $(document).on('shown.bs.modal', '#requestTimesheetModal,#timesheetModal', function(){
+                        initDateTimePickers24(this);
                       });
-                    }
-                    reformatAllDateSpans();
 
-
-                        function applyRoleFieldLocks(){
-                            const $form = $('#edit_task_form');
-                            const isHead = ($form.data('is-head') === 1 || $form.data('is-head') === '1')|| ($form.data('is-head-engineer') === 1 || $form.data('is-head-engineer') === '1'); // fallback
-                            const isEngineer = ($form.data('is-engineer') === 1 || $form.data('is-engineer') === '1');
-                            const isPM = ($form.data('is-pm') === 1 || $form.data('is-pm') === '1');
-                            const isAdmin = ($form.data('is-admin') === 1 || $form.data('is-admin') === '1');
-                            const state   = String($form.data('task-state')||'');
-                             const isROAll = ($form.data('form-readonly-all')===1 || $form.data('form-readonly-all')==='1');
-
-                          function disableAll(){
-                            $form.find('input,select,textarea,button[type="submit"]').each(function(){
-                              const $el = $(this);
-                              if(this.type==='hidden') return;
-                              if($el.closest('.action-toolbar').length) return; // tombol action tetap aktif
-                              if($el.is('#btnTimeStart,#btnTimeStop,#btnTimePause,#btnRequestTimesheet')) return;
-                              $el.prop('disabled', true).attr('readonly', true);
-                              if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
-                            });
-                            $('.btn-sync-bobot').prop('disabled', true).addClass('disabled').hide();
-                            if(isEngineer){ $('.btn-new-subtask').hide(); }
-                          }
-                          function enableSelector(sel){
-                            $form.find(sel).each(function(){
-                              $(this).prop('disabled', false).removeAttr('readonly');
-                              if($(this).hasClass('select2-hidden-accessible')) $(this).trigger('change.select2');
-                            });
-                          }
-
-                          // Readonly-all atau Engineer => kunci semua (kecuali toolbar/timer)
-                          if(isEngineer || isROAll){
-                            disableAll();
-                            return;
-                          }
-
-                          // Head (tanpa PM/Admin): boleh edit Member + Description saat new/in_progress
-                          if(isHead && !(isPM || isAdmin)){
-                            disableAll();
-                            if(!['approved1','approved2','done'].includes(state)){
-                              enableSelector('select[name="z_member_assignes_ids"]');
-                              enableSelector('textarea[name="description"]');
-                              $('button[type="submit"][form="edit_task_form"]').prop('disabled', false).removeAttr('readonly');
-                            }
-                            return;
-                          }
-
-                          // PM/Admin: bebas
-                        }
-                        applyRoleFieldLocks();
-
-
+                      // Calculate Bobot (keep single handler)
                       $(document).on('click', '.btn-calculate-bobot', function(){
                         const taskId = $(this).data('task-id');
                         const csrf = $('input[name="csrf_token"]').val() || '';
@@ -883,6 +805,127 @@
                           $btn.prop('disabled', false).removeClass('disabled');
                         });
                       });
+
+                      // Live hint untuk Request + Correction
+                      function calcHoursDiff(startStr,endStr){
+                        if(!startStr||!endStr) return 0;
+                        try{
+                          const s=new Date(startStr.replace('T',' '));
+                          const e=new Date(endStr.replace('T',' '));
+                          const diffMs=e.getTime()-s.getTime();
+                          if(isNaN(diffMs)||diffMs<=0) return 0;
+                          return diffMs/3600000;
+                        }catch(e){return 0;}
+                      }
+                      function updateRequestHoursHint(){
+                        const h = calcHoursDiff($('input[name="start_date"]').val(), $('input[name="end_date"]').val());
+                        $('#request_hours_hint').text(h ? `Duration: ${h.toFixed(2)} h` : '');
+                      }
+                      $(document).on('change', 'input[name="start_date"], input[name="end_date"]', updateRequestHoursHint);
+                      $('#requestTimesheetModal').on('shown.bs.modal', updateRequestHoursHint);
+
+                      function updateCorrectionHours(){
+                        const h = calcHoursDiff($('#timesheet_start_date').val(), $('#timesheet_end_date').val());
+                        if(!isNaN(h) && isFinite(h)){
+                          $('#timesheet_hours').val(h.toFixed(2));
+                        }
+                      }
+                      $('#timesheet_start_date,#timesheet_end_date').on('change', updateCorrectionHours);
+                      $('#timesheetModal').on('shown.bs.modal', updateCorrectionHours);
+
+                      /* ========== TIME FORMAT PATCH (tetap) ========== */
+                      const ENABLE_TIME_SHIFT = true;
+                      function toLocalFromUtc(utcIso){
+                        if(!utcIso) return '';
+                        try{
+                          let iso = utcIso.trim().replace(' ','T');
+                          if(!/[zZ]|[+\-]\d{2}:?\d{2}$/.test(iso)){ iso += 'Z'; }
+                          const d = new Date(iso);
+                          if(isNaN(d.getTime())) return utcIso;
+                          const fmt = new Intl.DateTimeFormat(undefined, {
+                            year:'2-digit', month:'2-digit', day:'2-digit',
+                            hour:'2-digit', minute:'2-digit', hour12:false
+                          });
+                          const parts = fmt.formatToParts(d).reduce((acc,p)=>{acc[p.type]=p.value;return acc;}, {});
+                          const dd = parts.day || '';
+                          const mm = parts.month || '';
+                          const yy = parts.year || '';
+                          const HH = parts.hour || '';
+                          const MM = parts.minute || '';
+                          return `${dd}/${mm}/20${yy} ${HH}:${MM}`;
+                        }catch(e){ return utcIso; }
+                      }
+                      function reformatAllDateSpans(scope){
+                        if(!ENABLE_TIME_SHIFT) return;
+                        const $scope = scope ? $(scope) : $(document);
+                        $scope.find('.timesheet-datetime').each(function(){
+                          const $el=$(this);
+                          if($el.attr('data-shifted')==='1') return;
+                          if($el.data('origin')!=='utc') return;
+                          const raw=$el.attr('data-utc');
+                          if(raw){
+                            $el.text(toLocalFromUtc(raw));
+                            $el.attr('data-shifted','1');
+                          }
+                        });
+                      }
+                      reformatAllDateSpans();
+
+                      function applyRoleFieldLocks(){
+                        const $form = $('#edit_task_form');
+                        const isHead = ($form.data('is-head') === 1 || $form.data('is-head') === '1')|| ($form.data('is-head-engineer') === 1 || $form.data('is-head-engineer') === '1');
+                        const isEngineer = ($form.data('is-engineer') === 1 || $form.data('is-engineer') === '1');
+                        const isPM = ($form.data('is-pm') === 1 || $form.data('is-pm') === '1');
+                        const isAdmin = ($form.data('is-admin') === 1 || $form.data('is-admin') === '1');
+                        const isSupport = ($form.data('is-support') === 1 || $form.data('is-support') === '1'); // TAMBAHAN
+                        const state   = String($form.data('task-state')||'');
+                        const isROAll = ($form.data('form-readonly-all')===1 || $form.data('form-readonly-all')==='1');
+
+                        function disableAll(){
+                          $form.find('input,select,textarea,button[type="submit"]').each(function(){
+                            const $el = $(this);
+                            if(this.type==='hidden') return;
+                            if($el.closest('.action-toolbar').length) return;
+                            if($el.is('#btnTimeStart,#btnTimeStop,#btnTimePause,#btnRequestTimesheet')) return;
+                            $el.prop('disabled', true).attr('readonly', true);
+                            if($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
+                          });
+                          $('.btn-sync-bobot').prop('disabled', true).addClass('disabled').hide();
+                          if(isEngineer){ $('.btn-new-subtask').hide(); }
+                        }
+                        function enableSelector(sel){
+                          $form.find(sel).each(function(){
+                            $(this).prop('disabled', false).removeAttr('readonly');
+                            if($(this).hasClass('select2-hidden-accessible')) $(this).trigger('change.select2');
+                          });
+                        }
+
+                        if(isEngineer || isROAll){
+                          disableAll();
+                          return;
+                        }
+
+                        // Head (tanpa PM/Admin): boleh edit Member + Description saat new/in_progress
+                        if(isHead && !(isPM || isAdmin)){
+                          disableAll();
+                          if(!['approved1','approved2','done'].includes(state)){
+                            enableSelector('select[name="z_member_assignes_ids"]');
+                            enableSelector('textarea[name="description"]');
+                            $('button[type="submit"][form="edit_task_form"]').prop('disabled', false).removeAttr('readonly');
+                          }
+                          // JANGAN izinkan edit Head Assignees
+                          $form.find('select[name="z_head_assignes_ids"]').prop('disabled', true).attr('readonly', true).trigger('change.select2');
+                          return;
+                        }
+
+                        // Delivery Support: setidaknya kunci Head Assignees
+                        if(isSupport && !(isPM || isAdmin)){
+                          $form.find('select[name="z_head_assignes_ids"]').prop('disabled', true).attr('readonly', true).trigger('change.select2');
+                        }
+
+                        // PM/Admin: bebas
+                      }
+                      applyRoleFieldLocks();
 
 
                       /* ========== Load More (tetap) ========== */
@@ -971,33 +1014,32 @@
 
                       window._original_desc='';
 
-                     // Sesuaikan populateTimesheetForm agar set nilai ke flatpickr
-                    function populateTimesheetForm(ts){
-                      const oriStart = ts.original_start_date || ts.start_date || '';
-                      const oriEnd   = ts.original_end_date   || ts.end_date   || '';
-                      $('#timesheet_original_start_date').val(oriStart);
-                      $('#timesheet_original_end_date').val(oriEnd);
-                      $('#timesheet_id').val(ts.id);
+                      function populateTimesheetForm(ts){
+                        const oriStart = ts.original_start_date || ts.start_date || '';
+                        const oriEnd   = ts.original_end_date   || ts.end_date   || '';
+                        $('#timesheet_original_start_date').val(oriStart);
+                        $('#timesheet_original_end_date').val(oriEnd);
+                        $('#timesheet_id').val(ts.id);
 
-                      const sVal = (ts.start_date || '').replace('T',' ');
-                      const eVal = (ts.end_date || '').replace('T',' ');
+                        const sVal = (ts.start_date || '').replace('T',' ');
+                        const eVal = (ts.end_date || '').replace('T',' ');
 
-                      const sInp = document.getElementById('timesheet_start_date');
-                      const eInp = document.getElementById('timesheet_end_date');
-                      if(sInp && sInp._flatpickr){ sInp._flatpickr.setDate(sVal || null, true, 'Y-m-d H:i'); } else { $('#timesheet_start_date').val(sVal); }
-                      if(eInp && eInp._flatpickr){ eInp._flatpickr.setDate(eVal || null, true, 'Y-m-d H:i'); } else { $('#timesheet_end_date').val(eVal); }
+                        const sInp = document.getElementById('timesheet_start_date');
+                        const eInp = document.getElementById('timesheet_end_date');
+                        if(sInp && sInp._flatpickr){ sInp._flatpickr.setDate(sVal || null, true, 'Y-m-d H:i'); } else { $('#timesheet_start_date').val(sVal); }
+                        if(eInp && eInp._flatpickr){ eInp._flatpickr.setDate(eVal || null, true, 'Y-m-d H:i'); } else { $('#timesheet_end_date').val(eVal); }
 
-                      $('#timesheet_description').val(ts.description || '');
-                      $('#timesheet_employee').val(ts.employee_id || '').trigger('change');
-                      window._original_desc = ts.description || '';
-                      if(ts.pending){
-                        $('#pending_info').removeClass('d-none');
-                        $('#timesheetModalLabel').text('Timesheet Correction (Pending Exists)');
-                      } else {
-                        $('#pending_info').addClass('d-none');
-                        $('#timesheetModalLabel').text('Timesheet Correction');
+                        $('#timesheet_description').val(ts.description || '');
+                        $('#timesheet_employee').val(ts.employee_id || '').trigger('change');
+                        window._original_desc = ts.description || '';
+                        if(ts.pending){
+                          $('#pending_info').removeClass('d-none');
+                          $('#timesheetModalLabel').text('Timesheet Correction (Pending Exists)');
+                        } else {
+                          $('#pending_info').addClass('d-none');
+                          $('#timesheetModalLabel').text('Timesheet Correction');
+                        }
                       }
-                    }
 
                       function openTimesheetPopup(taskId, timesheetId){
                         if(!timesheetId){ alert('Pilih timesheet untuk dikoreksi'); return; }
@@ -1016,13 +1058,6 @@
                         const taskId=$('#current_task_id').val();
                         const tsId=$('#timesheet_id').val();
                         if(!tsId){ alert('Timesheet tidak valid.'); return; }
-
-                    <!--    const sameStart = $('#timesheet_original_start_date').val() === $('#timesheet_start_date').val();-->
-                    <!--    const sameEnd   = $('#timesheet_original_end_date').val() === $('#timesheet_end_date').val();-->
-                    <!--    const sameDesc  = ($('#timesheet_description').val().trim() === (window._original_desc||'').trim());-->
-                    <!--    if(sameStart && sameEnd && sameDesc){-->
-                    <!--      if(!confirm('Tidak ada perubahan. Tetap kirim?')) return;-->
-                    <!--    }-->
 
                         const fd = new FormData($('#timesheetForm')[0]);
                         fd.append('csrf_token', $('input[name="csrf_token"]').val()||'');
@@ -1080,12 +1115,14 @@
                         const id   = $btn.data('id');
                         const type = $btn.data('type');
                         if(!id || !type){ alert('Invalid request meta'); return; }
-                        let base = (type === 'correction') ? '/portal/timesheet-correction/' : '/portal/timesheet-request/';
+                        // jika correction: tetap ke /portal/timesheet-correction/
+                        // jika new: arahkan ke /portal/timesheet/ (AAL)
+                        let base = (type === 'correction') ? '/portal/timesheet-correction/' : '/portal/timesheet/';
                         const url = base + id + '/' + action;
                         let payload = {csrf_token: $('input[name="csrf_token"]').val()||''};
-                        if(action === 'reject'){
+                        if(action === 'reject' && type !== 'correction'){ // untuk AAL reject minta reason opsional/mandatory sesuai kebutuhan
                           let reason = prompt('Masukkan alasan reject (wajib):');
-                          if(reason === null) return; // cancel
+                          if(reason === null) return;
                           reason = reason.trim();
                           if(!reason){ alert('Alasan reject wajib diisi.'); return; }
                           payload['reason'] = reason;
@@ -1104,22 +1141,6 @@
                       });
                       $(document).off('click','.btn-req-reject').on('click','.btn-req-reject', function(){
                         processTimesheetRequestAction($(this), 'reject');
-                      });
-
-                      function calcHoursDiff(startStr,endStr){
-                        if(!startStr||!endStr) return 0;
-                        try{
-                          const s=new Date(startStr);
-                          const e=new Date(endStr);
-                          if(isNaN(s.getTime())||isNaN(e.getTime())) return 0;
-                          const diffMs=e.getTime()-s.getTime();
-                          if(diffMs<=0) return 0;
-                          return diffMs/3600000;
-                        }catch(e){return 0;}
-                      }
-                      $('#timesheet_start_date,#timesheet_end_date').on('change',function(){
-                        const h=calcHoursDiff($('#timesheet_start_date').val(),$('#timesheet_end_date').val());
-                        $('#timesheet_hours').val(h.toFixed(2));
                       });
 
                       $(document).on('click','#btnTimeStart',function(e){
@@ -1171,30 +1192,9 @@
                         alert('Untuk menambah entry gunakan Request Timesheet.');
                       });
 
-                      // ========== Tambahan: Intercept Submit → Auto Stop (Engineer, Maintenance) ==========
-                      let pendingConfirmForm = null;
-                      $(document).on('submit', 'form:has(input[name="function"][value="confirm"])', function(e){
-                        const $editForm = $('#edit_task_form');
-                        if(!$editForm.length) return; // bukan halaman edit task
+                      // NOTE: Intercept workflow lama DIHAPUS, sekarang pakai #wf_confirm_form di script bawah edit form
 
-                        // Deteksi role & jenis task dari data-* pada form
-                        const isEngineer    = ($editForm.data('is-engineer') === 1 || $editForm.data('is-engineer') === '1');
-                        const isMaintenance = ($editForm.data('is-maintenance') === 1 || $editForm.data('is-maintenance') === '1');
-
-                        // Deteksi timer berjalan dari badge
-                        const badgeVisible  = ($timerBadge.length && !$timerBadge.hasClass('d-none'));
-                        const pausedAttr    = $timerBadge.data('paused');
-                        const pausedNow     = (pausedAttr === true || pausedAttr === 'true');
-                        const timerRunning  = badgeVisible && !pausedNow;
-
-                        if(isEngineer && isMaintenance && timerRunning){
-                          e.preventDefault();
-                          pendingConfirmForm = this;
-                          $('#timerStopModal').modal('show'); // buka modal stop agar user isi deskripsi
-                          return false;
-                        }
-                      });
-
+                      // Handler Stop & Save: pakai window.pendingConfirmForm agar kompatibel dengan intercept baru
                       $('#confirmStopBtn').off('click').on('click', function(){
                         const taskId=$(this).data('task-id');
                         const desc=$('#timerStopDescription').val().trim();
@@ -1232,11 +1232,11 @@
                               $('#timerStopModal').modal('hide');
                               $('#timerStopDescription').val('');
                               $('#timerAttachments').val('');
-                              // Jika ada workflow submit yang tertunda → lanjutkan, else reload
-                              if(pendingConfirmForm){
+                              // Lanjutkan workflow confirm jika diminta
+                              if(window.pendingConfirmForm){
                                 setTimeout(function(){
-                                  try{ pendingConfirmForm.submit(); }catch(e){}
-                                  pendingConfirmForm = null;
+                                  try{ window.pendingConfirmForm.submit(); }catch(e){}
+                                  window.pendingConfirmForm = null;
                                 }, 300);
                               } else {
                                 setTimeout(function(){location.reload();},1000);
@@ -1254,13 +1254,8 @@
                         });
                       });
 
-                       $(document).on('submit', '#edit_task_form', function(){
-                        $(this)
-                          .find('.action-toolbar form input[name="function"], .action-toolbar form input[name="_workflow"]')
-                          .each(function(){
-                            $(this).prop('disabled', true).attr('data-disabled-by','edit-form');
-                          });
-                      });
+                      // HAPUS handler global yang disable _workflow saat Save (digantikan script bawah edit form)
+                      // $(document).on('submit', '#edit_task_form', function(){ ... });
 
                       // Section header toggle + persist (tetap)
                       $(document).on('click','.ts-sec-header',function(e){
@@ -1343,6 +1338,68 @@
                     });
                 ]]>
             </script>
+
+            <script type="text/javascript">
+                <![CDATA[
+                        (function($){
+
+                          // === AUTO SUGGEST MEMBER (EDIT & NEW) ===
+                          function autoSuggestMembers(contextScope){
+                              var $head = $(contextScope || document).find('select[name="z_head_assignes_ids"]');
+                              var $member = $(contextScope || document).find('select[name="z_member_assignes_ids"]');
+                              if(!$head.length || !$member.length) return;
+                              var taskId = $('#edit_task_form').length ? $('#edit_task_form').attr('action').split('/').pop() : '';
+                              var parentId = $('input[name="parent_id"]').val() || $('input[name="parent_id"]').data('value') || '';
+                              var projectId = $('input[name="project_id"]').val() || $('select[name="project_id"]').val() || '';
+                              var headVals = ($head.val()||[]).join(',');
+                              if(!headVals){ return; }
+                              $.post('/portal/task/suggest-members',{
+                                  head_ids: headVals,
+                                  task_id: taskId,
+                                  parent_id: parentId,
+                                  project_id: projectId,
+                                  csrf_token: $('input[name="csrf_token"]').val()||''
+                              }, function(r){
+                                  if(r && r.success){
+                                      var existing = new Set(r.member_ids || []);
+                                      // Replace isi member (policy: always override agar "otomatis terisi")
+                                      $member.find('option').each(function(){
+                                          var vid = parseInt($(this).val());
+                                          $(this).prop('selected', existing.has(vid));
+                                      });
+                                      $member.trigger('change');
+                                  }
+                              },'json');
+                          }
+
+                          $(document).on('change','select[name="z_head_assignes_ids"]', function(){
+                              autoSuggestMembers();
+                          });
+
+                          // === VALIDASI BOBOT SUBTASK <= PARENT ===
+                          function attachBobotValidation(scope){
+                             $(scope||document).find('input[name="z_bobot_entry"][data-parent-limit]').each(function(){
+                                var $inp = $(this);
+                                $inp.off('change._parentLimit input._parentLimit').on('change._parentLimit input._parentLimit', function(){
+                                    var limit = parseFloat($inp.data('parent-limit'));
+                                    if(isNaN(limit) || limit <=0) return;
+                                    var val = parseFloat($inp.val());
+                                    if(!isNaN(val) && val > limit){
+                                        alert('Bobot subtask tidak boleh melebihi bobot parent ('+limit.toFixed(2)+').');
+                                        $inp.val(limit.toFixed(2));
+                                    }
+                                });
+                             });
+                          }
+                          attachBobotValidation(document);
+
+                          // Trigger awal untuk edit
+                          autoSuggestMembers();
+
+                        })(jQuery);
+                        ]]>
+            </script>
+
 
             <!-- ================== STYLES ================== -->
             <style>
@@ -1720,6 +1777,7 @@
                 }
             </style>
 
+
             <t t-set="breadcrumbs_searchbar" t-value="True"/>
 
             <!-- BREADCRUMB -->
@@ -2051,11 +2109,28 @@
                                 </div>
                             </div>
 
+                            <t t-if="parent_task">
+                                <div class="mb-3">
+                                    <label>Rasio Bobot</label>
+                                    <t t-set="den"
+                                       t-value="(0.0 if (parent_task.z_bobot_entry is None) else parent_task.z_bobot_entry)"/>
+                                    <input type="text" class="form-control" readonly="readonly"
+                                           t-att-value="'0/{:g}'.format(den)"/>
+                                </div>
+                            </t>
+                            <t t-elif="project_id or project">
+                                <div class="mb-3">
+                                    <label>Rasio Bobot</label>
+                                    <input type="text" class="form-control" readonly="readonly" value="0/100"/>
+                                </div>
+                            </t>
+
                             <div class="mb-3">
                                 <label>Bobot (%)</label>
                                 <div class="input-group">
                                     <input type="number" step="0.01" min="0" max="100" name="z_bobot_entry"
-                                           class="form-control" value="0.00"/>
+                                           class="form-control" value="0.00"
+                                           t-att-data-parent-limit="parent_task and ('%.2f' % (parent_task.z_bobot_entry or 0.0)) or ''"/>
                                     <span class="input-group-text">%</span>
                                 </div>
                             </div>
@@ -2090,8 +2165,6 @@
 
 
             <t t-if="kw.get('mode') == 'edit' and task and task.z_type_non_project == 'others'">
-                <div class="alert alert-info mb-3">
-                </div>
                 <div class="d-flex align-items-center mb-3">
                     <a href="/portal/tasks" class="btn btn-secondary me-2">
                         <i class="fa fa-chevron-left me-1"/>Back
@@ -2156,6 +2229,7 @@
                             <t t-set="ts_pager" t-value="ts_pager"/>
                             <t t-set="task" t-value="task"/>
                             <t t-set="pending_requests" t-value="pending_requests"/>
+                            <t t-set="pending_new" t-value="pending_new"/>
                             <t t-set="approved_requests" t-value="approved_requests"/>
                             <t t-set="rejected_requests" t-value="rejected_requests"/>
                             <t t-set="req_disp_map" t-value="req_disp_map"/>
@@ -2179,16 +2253,19 @@
 
             <!-- ================== MODE EDIT ================== -->
             <t t-if="kw.get('mode') == 'edit' and task and task.z_type_non_project != 'others'">
+
                 <form id="edit_task_form"
+                      t-attf-action="/portal/tasks/#{task.id}"
+                      method="post"
                       t-att-data-is-admin="1 if is_admin else 0"
                       t-att-data-is-pm="1 if is_pm else 0"
                       t-att-data-is-head="1 if is_head else 0"
                       t-att-data-is-head-engineer="1 if is_head else 0"
                       t-att-data-is-engineer="1 if is_engineer else 0"
+                      t-att-data-is-support="1 if is_support else 0"
                       t-att-data-form-readonly-all="1 if portal_task_form_readonly_all else 0"
-                      t-att-data-task-state="task.z_project_task_state or ''">
-                    t-attf-action="/portal/tasks/#{task.id}"
-                    method="post">
+                      t-att-data-task-state="task.z_project_task_state or ''"
+                      t-att-data-is-maintenance="1 if (task.project_id and task.project_id.z_type_in_project == 'maintenance') else 0">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input type="hidden" name="mode" value="edit"/>
                     <input type="hidden" name="partner_id_hidden" t-att-value="task.partner_id.id or ''"/>
@@ -2198,16 +2275,16 @@
                             <div class="d-flex align-items-center flex-wrap">
                                 <!-- CHANGED: Back behavior -->
                                 <a t-att-href="
-                  task.parent_id
-                    and ('/portal/tasks/parent/%s' % (root_task and root_task.id or task.parent_id.id))
-                    or (
-                      (is_pm and task.project_id)
-                        and ('/portal/tasks?project_id=%s&amp;groupby=&amp;sortby=terlama' % task.project_id.id)
-                      or ((is_head_engineer or is_engineer or is_support) and '/portal/tasks?groupby=project_id')
-                      or (task.project_id and '/portal/tasks?project_id=%s&amp;groupby=&amp;sortby=terlama' % task.project_id.id)
-                      or '/portal/tasks'
-                    )
-                "
+                                      task.parent_id
+                                        and ('/portal/tasks/parent/%s' % (root_task and root_task.id or task.parent_id.id))
+                                        or (
+                                          (is_pm and task.project_id)
+                                            and ('/portal/tasks?project_id=%s&amp;groupby=&amp;sortby=terlama' % task.project_id.id)
+                                          or ((is_head_engineer or is_engineer or is_support) and '/portal/tasks?groupby=project_id')
+                                          or (task.project_id and '/portal/tasks?project_id=%s&amp;groupby=&amp;sortby=terlama' % task.project_id.id)
+                                          or '/portal/tasks'
+                                        )
+                                    "
                                    class="btn btn-primary d-flex align-items-center me-2">
                                     <i class="fa fa-chevron-left me-1"/>
                                     <span class="d-none d-sm-inline">Back</span>
@@ -2280,6 +2357,7 @@
                         </div>
                     </div>
 
+                    <!-- ACTION TOOLBAR (refactored: no nested forms) -->
                     <div class="action-toolbar mb-4">
                         <!-- Time Start/Stop tetap -->
                         <t t-if="task.z_project_task_state not in ('approved1','approved2','done')">
@@ -2289,7 +2367,15 @@
                                 <span>Time Start</span>
                             </button>
                         </t>
-                        <t t-if="task.z_project_task_state not in ('approved1','approved2','done') and not (task.project_id and task.project_id.z_type_in_project == 'maintenance' and is_engineer and not (is_pm or is_admin or is_head_engineer))">
+                        <!--                        <t t-if="task.z_project_task_state not in ('approved1','approved2','done') and not (task.project_id and task.project_id.z_type_in_project == 'maintenance' and is_engineer and not (is_pm or is_admin or is_head_engineer))">-->
+                        <!--                            <button id="btnTimeStop" type="button" class="btn btn-primary action-btn"-->
+                        <!--                                    data-bs-toggle="modal" data-bs-target="#timerStopModal"-->
+                        <!--                                    t-att-data-task-id="task.id" t-att-disabled="not active_timer_running">-->
+                        <!--                                <i class="fa fa-stop"></i>-->
+                        <!--                                <span>Time Stop</span>-->
+                        <!--                            </button>-->
+                        <!--                        </t>-->
+                        <t t-if="task.z_project_task_state not in ('approved1','approved2','done')">
                             <button id="btnTimeStop" type="button" class="btn btn-primary action-btn"
                                     data-bs-toggle="modal" data-bs-target="#timerStopModal"
                                     t-att-data-task-id="task.id" t-att-disabled="not active_timer_running">
@@ -2303,59 +2389,47 @@
                             <button type="button"
                                     class="btn btn-primary action-btn btn-calculate-bobot"
                                     t-att-data-task-id="task.id">
-                                <i class="fa fa-calculator me-1"></i>Calculate Bobot
+                                <i class="fa fa-calculator me-1"></i>Normalisasi Bobot
                             </button>
                         </t>
 
                         <!-- Submit (in_progress) -->
-                        <t t-if="task.z_project_task_state == 'in_progress' and can_submit_task and not active_timer_running">
-                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <input type="hidden" name="_workflow" value="1"/>
-                                <!--                                <input type="hidden" name="function" value="confirm"/>-->
-                                <button type="submit" class="btn btn-primary action-btn">
-                                    <i class="fa fa-check me-1"></i>Submit
-                                </button>
-                            </form>
+                        <!--                        <t t-if="task.z_project_task_state == 'in_progress' and can_submit_task and not active_timer_running">-->
+                        <!--                            <button type="submit" class="btn btn-primary action-btn" form="wf_confirm_form">-->
+                        <!--                                <i class="fa fa-check me-1"></i>Submit-->
+                        <!--                            </button>-->
+                        <!--                        </t>-->
+                        <t t-if="task.z_project_task_state == 'in_progress'
+                             and can_submit_task
+                             and (
+                                  (task.project_id and task.project_id.z_type_in_project == 'maintenance' and is_engineer)
+                                  or not active_timer_running
+                             )">
+                            <button type="submit" class="btn btn-primary action-btn" form="wf_confirm_form">
+                                <i class="fa fa-check me-1"></i>Submit
+                            </button>
                         </t>
 
                         <!-- Approve/Reject approved1 -->
                         <t t-if="task.z_project_task_state == 'approved1' and (is_head_engineer or is_pm or is_admin)">
-                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block me-1">
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <input type="hidden" name="_workflow" value="1"/>
-                                <!--                                <input type="hidden" name="function" value="confirm"/>-->
-                                <button type="submit" class="btn btn-primary action-btn">
-                                    <i class="fa fa-check me-1"></i>Approve
-                                </button>
-                            </form>
-                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <input type="hidden" name="_workflow" value="1"/>
-                                <input type="hidden" name="function" value="reject"/>
-                                <button type="submit" class="btn btn-primary action-btn">
-                                    <i class="fa fa-times me-1"></i>Reject
-                                </button>
-                            </form>
+                            <button type="submit" class="btn btn-primary action-btn me-1" form="wf_confirm_form">
+                                <i class="fa fa-check me-1"></i>Approve
+                            </button>
+                            <button type="submit" class="btn btn-primary action-btn wf-reject-btn"
+                                    form="wf_reject_form">
+                                <i class="fa fa-times me-1"></i>Reject
+                            </button>
                         </t>
 
                         <!-- Done/Reject approved2 -->
                         <t t-if="task.z_project_task_state == 'approved2' and can_approve_task">
-                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block me-1">
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <input type="hidden" name="_workflow" value="1"/>
-                                <!--                                <input type="hidden" name="function" value="confirm"/>-->
-                                <button type="submit" class="btn btn-primary action-btn">Done
-                                </button>
-                            </form>
-                            <form t-attf-action="/portal/task/#{task.id}" method="post" class="d-inline-block">
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <input type="hidden" name="_workflow" value="1"/>
-                                <input type="hidden" name="function" value="reject"/>
-                                <button type="submit" class="btn btn-primary action-btn">
-                                    <i class="fa fa-times me-1"></i>Reject
-                                </button>
-                            </form>
+                            <button type="submit" class="btn btn-primary action-btn me-1" form="wf_confirm_form">
+                                Done
+                            </button>
+                            <button type="submit" class="btn btn-primary action-btn wf-reject-btn"
+                                    form="wf_reject_form">
+                                <i class="fa fa-times me-1"></i>Reject
+                            </button>
                         </t>
 
                         <t t-if="task.z_project_task_state not in ('approved1','approved2','done')">
@@ -2528,11 +2602,20 @@
                                     </div>
                                 </div>
                                 <div class="mb-3">
+                                    <label>Rasio Bobot</label>
+                                    <input type="text" class="form-control" readonly="readonly"
+                                           t-att-value="task.z_parent_bobot or (task.parent_id and ('0/{:g}'.format(task.parent_id.z_bobot_entry or 0.0)) or '0/100')"
+                                           t-att-data-bobot-used="'{:.2f}'.format(parent_bobot_used or 0.0)"
+                                           t-att-data-bobot-total="'{:.2f}'.format(parent_bobot_total or 0.0)"/>
+                                </div>
+                                <div class="mb-3">
                                     <label>Bobot (%)</label>
                                     <div class="input-group">
                                         <input type="number" step="0.01" min="0" max="100" class="form-control"
                                                name="z_bobot_entry"
-                                               t-att-value="'{:.2f}'.format(task.z_bobot_entry) if task.z_bobot_entry else '0.00'"/>
+                                               t-att-value="'{:.2f}'.format(task.z_bobot_entry) if task.z_bobot_entry else '0.00'"
+                                               t-att-data-parent-limit="task.parent_id and ('%.2f' % (task.parent_id.z_bobot_entry or 0.0)) or ''"
+                                               t-att-data-current-bobot="'{:.2f}'.format(task.z_bobot_entry or 0.0)"/>
                                         <span class="input-group-text">%</span>
                                     </div>
                                 </div>
@@ -2676,448 +2759,43 @@
                         <div class="tab-pane fade"
                              t-att-class="'tab-pane fade show active' if (is_engineer and not (is_pm or is_head_engineer)) else 'tab-pane fade'"
                              id="timesheets">
-                            <t t-set="pending_new"
-                               t-value="pending_requests.filtered(lambda r: req_disp_map.get(r.id, {}).get('type') == 'new')"/>
-                            <t t-set="pending_corr"
-                               t-value="pending_requests.filtered(lambda r: req_disp_map.get(r.id, {}).get('type') == 'correction')"/>
-
-                            <div class="mt-3 mb-3">
-
-                                <!-- History Collapse -->
-                                <!--                                <div class="mt-3">-->
-                                <!--                                    <button class="btn btn-sm btn-outline-secondary" type="button"-->
-                                <!--                                            data-bs-toggle="collapse" data-bs-target="#historyCollapse">-->
-                                <!--                                        <i class="fa fa-history me-1"></i>Show / Hide History-->
-                                <!--                                    </button>-->
-                                <!--                                </div>-->
-
-                                <!-- Global Section Toggles -->
-                                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-                                    <button type="button" class="btn btn-sm btn-outline-primary ts-toggle-all"
-                                            data-action="expand">Expand All
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary ts-toggle-all"
-                                            data-action="collapse">Collapse All
-                                    </button>
-                                </div>
-
-                                <!-- Section Wrapper Component -->
-                                <t t-set="section_defs" t-value="[
-  {'key':'pending_new','title':'Pending New Entries','records': pending_new,'badge':'bg-light text-dark'},
-  {'key':'pending_corr','title':'Pending Corrections','records': pending_corr,'badge':'bg-light text-dark'},
-  {'key':'rejected','title':'Rejected (Last 20)','records': rejected_requests,'badge':'bg-light'},
-  {'key':'approved','title':'Approved (Last 20)','records': approved_requests,'badge':'bg-light'},
-]"/>
-
-                                <!-- Loop Semua Section -->
-                                <t t-foreach="section_defs" t-as="sec">
-                                    <t t-set="recset" t-value="sec.get('records')"/>
-                                    <div class="ts-section mb-3" t-att-data-sec="sec.get('key')">
-                                        <!-- Header -->
-                                        <div class="d-flex align-items-center justify-content-between ts-sec-header px-3 py-2 rounded border"
-                                             t-att-style="'background:#f8f9fa; border-left:5px solid %s; cursor:pointer;' % sec.get('color')"
-                                             t-att-data-target="'#sec_body_'+sec.get('key')"
-                                             data-collapsed="true"
-                                             role="button"
-                                             t-att-aria-controls="'sec_body_'+sec.get('key')"
-                                             aria-expanded="false">
-                                            <div class="d-flex align-items-center flex-wrap">
-                                                <strong class="me-2" t-esc="sec.get('title')"/>
-                                                <span class="badge count-badge ms-1"
-                                                      t-esc="(recset and len(recset)) or 0"/>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="text-muted small toggle-label">Show</span>
-                                                <i class="fa fa-chevron-down rotate-icon" style="transition:.25s;"></i>
-                                            </div>
-                                        </div>
-
-                                        <!-- Body (Collapsed default) -->
-                                        <div class="collapse ts-sec-body" t-att-id="'sec_body_'+sec.get('key')">
-                                            <t t-if="recset">
-                                                <div class="row g-2 mt-2">
-                                                    <t t-foreach="recset" t-as="rq">
-                                                        <t t-set="rinfo" t-value="req_disp_map.get(rq.id) or {}"/>
-                                                        <t t-set="emp_name"
-                                                           t-value="(rq.z_employee_id and rq.z_employee_id.name) or (rq.z_timesheet_id and rq.z_timesheet_id.employee_id and rq.z_timesheet_id.employee_id.name) or rq.create_uid.name"/>
-                                                        <div class="col-12">
-                                                            <div class="card shadow-sm border-0"
-                                                                 t-att-style="'border-left:4px solid %s;'"
-                                                                 t-att-data-req-id="rq.id">
-                                                                <div class="card-body p-3 d-flex justify-content-between">
-                                                                    <div class="me-3">
-                                                                        <div class="d-flex align-items-center mb-1 flex-wrap">
-                                                                            <strong class="me-2"
-                                                                                    t-esc="emp_name or '-'"/>
-                                                                            <!-- TYPE Badge -->
-                                                                            <t t-if="rinfo.get('type')=='new'">
-                                                                                <span class="badge bg-primary">New
-                                                                                </span>
-                                                                            </t>
-                                                                            <t t-elif="rinfo.get('type')=='correction'">
-                                                                                <span class="badge bg-purple"
-                                                                                      style="background:#6f42c1;">
-                                                                                    Correction
-                                                                                </span>
-                                                                            </t>
-                                                                            <!-- STATE Badge (derived by section) -->
-                                                                            <t t-if="sec.get('key').startswith('pending')">
-                                                                                <span class="badge bg-warning text-dark ms-2">
-                                                                                    Waiting
-                                                                                </span>
-                                                                            </t>
-                                                                            <t t-elif="sec.get('key')=='approved'">
-                                                                                <span class="badge bg-success ms-2">
-                                                                                    Approved
-                                                                                </span>
-                                                                            </t>
-                                                                            <t t-elif="sec.get('key')=='rejected'">
-                                                                                <span class="badge bg-danger ms-2">
-                                                                                    Rejected
-                                                                                </span>
-                                                                            </t>
-                                                                        </div>
-
-                                                                        <!-- Content -->
-                                                                        <div class="small mb-1">
-                                                                            <t t-if="rinfo.get('type')=='correction'">
-                                                                                <strong class="text-muted">Original:
-                                                                                </strong>
-                                                                                <t t-esc="rinfo.get('ori_start') or '-'"/>
-                                                                                →
-                                                                                <t t-esc="rinfo.get('ori_end') or '-'"/>
-                                                                                <br/>
-                                                                            </t>
-                                                                            <strong class="text-primary">
-                                                                                <t t-if="sec.get('key')=='approved'">
-                                                                                    Final:
-                                                                                </t>
-                                                                                <t t-elif="sec.get('key')=='rejected'">
-                                                                                    Proposed:
-                                                                                </t>
-                                                                                <t t-else="">Actual:</t>
-                                                                            </strong>
-                                                                            <t t-esc="rinfo.get('new_start') or '-'"/>
-                                                                            →
-                                                                            <t t-esc="rinfo.get('new_end') or '-'"/>
-                                                                            (
-                                                                            <t t-esc="rinfo.get('hours') or 0"/>h)
-                                                                        </div>
-                                                                        <div class="text-muted small"
-                                                                             t-esc="rinfo.get('desc') or ''"/>
-
-                                                                        <t t-if="sec.get('key')=='rejected' and (rinfo.get('reject_reason_desc') or rinfo.get('reject_reason'))">
-                                                                            <div class="alert alert-danger py-1 px-2 mt-2 mb-0">
-                                                                                <i class="fa fa-exclamation-triangle me-1"></i>
-                                                                                <strong>Rejected:</strong>
-                                                                                <span t-esc="rinfo.get('reject_reason_desc') or rinfo.get('reject_reason')"/>
-                                                                            </div>
-                                                                        </t>
-
-                                                                        <!-- Badge Meta Collapse -->
-                                                                        <!--                                                                        <div class="collapse mt-2 ts-meta-badges"-->
-                                                                        <!--                                                                             t-att-id="'req_meta_'+str(rq.id)">-->
-                                                                        <div class="mt-1 d-flex flex-wrap gap-1">
-                                                                            <span class="badge bg-light text-dark">
-                                                                                <t t-esc="task.project_id.label_tasks or task.project_id.name or ''"/>
-                                                                            </span>
-                                                                            <span class="badge bg-light text-dark">
-                                                                                <t t-esc="task.name"/>
-                                                                            </span>
-                                                                            <t t-if="task.z_master_task_id">
-                                                                                <span class="badge bg-light text-dark">
-                                                                                    <t t-esc="task.z_master_task_id.z_name"/>
-                                                                                </span>
-                                                                            </t>
-                                                                            <t t-if="task.project_id">
-                                                                                <span class="badge bg-light text-dark">
-                                                                                    <t t-esc="task.project_id.name"/>
-                                                                                </span>
-                                                                            </t>
-                                                                        </div>
-                                                                        <!--                                                                        </div>-->
-                                                                    </div>
-
-                                                                    <!-- Actions -->
-                                                                    <div class="text-end">
-                                                                        <t t-if="can_approve_timesheet and sec.get('key').startswith('pending')">
-                                                                            <!--                                                                            <div class="btn-group">-->
-                                                                            <!--                                                                                <button type="button"-->
-                                                                            <!--                                                                                        class="btn btn-sm btn-success btn-req-approve"-->
-                                                                            <!--                                                                                        t-att-data-id="rq.id"-->
-                                                                            <!--                                                                                        t-att-data-type="rinfo.get('type')">-->
-                                                                            <!--                                                                                    <i class="fa fa-check"></i>-->
-                                                                            <!--                                                                                </button>-->
-                                                                            <!--                                                                                <button type="button"-->
-                                                                            <!--                                                                                        class="btn btn-sm btn-outline-danger btn-req-reject"-->
-                                                                            <!--                                                                                        t-att-data-id="rq.id"-->
-                                                                            <!--                                                                                        t-att-data-type="rinfo.get('type')">-->
-                                                                            <!--                                                                                    <i class="fa fa-times"></i>-->
-                                                                            <!--                                                                                </button>-->
-                                                                            <!--                                                                            </div>-->
-                                                                            <div class="request-action-group d-flex gap-2">
-                                                                                <button type="button"
-                                                                                        class="btn btn-success ts-btn-big btn-req-approve"
-                                                                                        t-att-data-id="rq.id"
-                                                                                        t-att-data-type="rinfo.get('type')">
-                                                                                    <i class="fa fa-check me-1"></i>
-                                                                                    Approve
-                                                                                </button>
-                                                                                <button type="button"
-                                                                                        class="btn btn-outline-danger ts-btn-big btn-req-reject"
-                                                                                        t-att-data-id="rq.id"
-                                                                                        t-att-data-type="rinfo.get('type')">
-                                                                                    <i class="fa fa-times me-1"></i>
-                                                                                    Reject
-                                                                                </button>
-                                                                            </div>
-                                                                        </t>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </t>
-                                                </div>
-                                            </t>
-                                            <t t-else="">
-                                                <div class="alert alert-light py-2 mt-2 mb-0">
-                                                    <t t-if="sec.get('key')=='pending_new'">No pending new requests.</t>
-                                                    <t t-elif="sec.get('key')=='pending_corr'">No pending corrections.
-                                                    </t>
-                                                    <t t-elif="sec.get('key')=='approved'">No approved history yet.</t>
-                                                    <t t-elif="sec.get('key')=='rejected'">No rejected history yet.</t>
-                                                </div>
-                                            </t>
-                                        </div>
-                                    </div>
-                                </t>
-
-                                <!-- ========== TIMESHEET LIST (Desktop) ========== -->
-                                <h5 class="mt-4 mb-2">Timesheet Entries</h5>
-                                <div class="d-none d-md-block">
-                                    <t t-if="timesheets_show or timesheets">
-                                        <div class="table-responsive">
-                                            <table class="table table-striped timesheet-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Start</th>
-                                                        <th>End</th>
-                                                        <th>Employee</th>
-                                                        <th>Description</th>
-                                                        <th>Time Spent</th>
-                                                        <th>Status</th>
-                                                        <th style="width:80px;">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="timesheet_table_body">
-                                                    <t t-foreach="timesheets_show or timesheets or []" t-as="ts">
-                                                        <tr>
-                                                            <td>
-                                                                <t t-if="zeiten_map.get(ts.id)">
-                                                                    <t t-esc="zeiten_map.get(ts.id).get('start_wib')"/>
-                                                                </t>
-                                                            </td>
-                                                            <td>
-                                                                <t t-if="zeiten_map.get(ts.id) and zeiten_map.get(ts.id).get('end_wib')">
-                                                                    <t t-esc="zeiten_map.get(ts.id).get('end_wib')"/>
-                                                                </t>
-                                                                <t t-else="">
-                                                                    <span class="badge bg-success">RUNNING</span>
-                                                                </t>
-                                                            </td>
-                                                            <td>
-                                                                <span t-field="ts.employee_id.name"/>
-                                                            </td>
-                                                            <td>
-                                                                <span t-field="ts.name"/>
-                                                            </td>
-                                                            <td>
-                                                                <t t-set="mins"
-                                                                   t-value="int(round((ts.unit_amount or 0)*60))"/>
-                                                                <t t-set="hh" t-value="mins//60"/>
-                                                                <t t-set="mm" t-value="mins%60"/>
-                                                                <span>
-                                                                    <t t-esc="'%02d:%02d' % (hh, mm)"/>
-                                                                    <small class="text-muted d-block">(<t
-                                                                            t-esc="round(ts.unit_amount or 0,2)"/>h)
-                                                                    </small>
-                                                                </span>
-                                                            </td>
-                                                            <td>
-                                                                <span t-if="ts.z_state=='approved'"
-                                                                      class="badge bg-success">Done
-                                                                </span>
-                                                                <span t-elif="ts.z_state=='waiting_approval'"
-                                                                      class="badge bg-warning text-dark">Waiting
-                                                                </span>
-                                                                <span t-elif="ts.z_state=='draft'"
-                                                                      class="badge bg-secondary">Draft
-                                                                </span>
-                                                                <span t-else="" class="badge bg-light text-dark">
-                                                                    <t t-esc="ts.z_state"/>
-                                                                </span>
-                                                            </td>
-                                                            <td>
-                                                                <t t-if="task.z_project_task_state not in ('approved1','approved2','done')">
-                                                                    <button type="button"
-                                                                            class="btn btn-sm btn-outline-primary edit-timesheet-btn"
-                                                                            t-att-data-task-id="task.id"
-                                                                            t-att-data-timesheet-id="ts.id">
-                                                                        <i class="fa fa-edit"></i>
-                                                                    </button>
-                                                                    <form t-attf-action="/portal/task/#{task.id}/timesheet/delete/#{ts.id}"
-                                                                          method="post" class="d-inline-block ms-1"
-                                                                          t-if="can_approve_timesheet_for_task or can_approve_timesheet">
-                                                                        <input type="hidden" name="csrf_token"
-                                                                               t-att-value="request.csrf_token()"/>
-                                                                        <button type="submit"
-                                                                                class="btn btn-sm btn-outline-danger"
-                                                                                onclick="return confirm('Delete?')">
-                                                                            <i class="fa fa-trash"></i>
-                                                                        </button>
-                                                                    </form>
-                                                                </t>
-                                                            </td>
-                                                        </tr>
-                                                    </t>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <t t-if="ts_pager and ts_pager['total_pages'] &gt; 1">
-                                            <div class="load-more-wrapper">
-                                                <button class="btn btn-outline-primary btn-sm btn-load-more-timesheets"
-                                                        t-att-data-task-id="task.id"
-                                                        data-next-page="2">Load More
-                                                </button>
-                                            </div>
-                                        </t>
-                                    </t>
-                                    <t t-if="not (timesheets_show or timesheets)">
-                                        <div class="alert alert-warning" role="alert">No timesheet entries.</div>
-                                    </t>
-                                </div>
-
-                                <!-- ========== TIMESHEET CARDS (Mobile) ========== -->
-                                <div class="d-md-none mt-4">
-                                    <t t-if="timesheets_show or timesheets">
-                                        <div class="row g-3" id="timesheet_card_container">
-                                            <t t-foreach="timesheets_show or timesheets" t-as="ts">
-                                                <div class="col-12">
-                                                    <div class="card shadow-sm">
-                                                        <div class="card-body p-3">
-                                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                                <h6 class="card-title mb-0">
-                                                                    <span t-field="ts.employee_id.name"/>
-                                                                </h6>
-                                                                <span t-if="ts.z_state=='approved'"
-                                                                      class="badge bg-success">Approved
-                                                                </span>
-                                                                <span t-elif="ts.z_state=='waiting_approval'"
-                                                                      class="badge bg-warning text-dark">Waiting
-                                                                </span>
-                                                                <span t-elif="ts.z_state=='draft'"
-                                                                      class="badge bg-secondary">Draft
-                                                                </span>
-                                                                <span t-else="" class="badge bg-light text-dark">
-                                                                    <t t-esc="ts.z_state"/>
-                                                                </span>
-                                                            </div>
-                                                            <div class="row g-2 text-sm">
-                                                                <div class="col-6">
-                                                                    <strong>Start:</strong>
-                                                                    <br/>
-                                                                    <t t-if="zeiten_map.get(ts.id)">
-                                                                        <span t-esc="zeiten_map.get(ts.id).get('start_wib')"/>
-                                                                    </t>
-                                                                </div>
-                                                                <div class="col-6">
-                                                                    <strong>End:</strong>
-                                                                    <br/>
-                                                                    <t t-if="zeiten_map.get(ts.id) and zeiten_map.get(ts.id).get('end_wib')">
-                                                                        <span t-esc="zeiten_map.get(ts.id).get('end_wib')"/>
-                                                                    </t>
-                                                                    <t t-else="">
-                                                                        <span class="text-muted">Running...</span>
-                                                                    </t>
-                                                                </div>
-                                                            </div>
-                                                            <div class="mt-2">
-                                                                <strong>Duration:</strong>
-                                                                <t t-set="mins"
-                                                                   t-value="int(round((ts.unit_amount or 0)*60))"/>
-                                                                <t t-set="hh" t-value="mins//60"/>
-                                                                <t t-set="mm" t-value="mins%60"/>
-                                                                <span>
-                                                                    <t t-esc="'%02d:%02d' % (hh, mm)"/>
-                                                                    <small class="text-muted d-block">(<t
-                                                                            t-esc="round(ts.unit_amount or 0,2)"/>h)
-                                                                    </small>
-                                                                </span>
-                                                            </div>
-                                                            <t t-if="ts.name">
-                                                                <div class="mt-2">
-                                                                    <strong>Description:</strong>
-                                                                    <br/>
-                                                                    <span t-field="ts.name" class="text-muted"/>
-                                                                </div>
-                                                            </t>
-                                                            <div class="mt-3 d-flex gap-2">
-                                                                <t t-if="task.z_project_task_state not in ('approved1','approved2','done')">
-                                                                    <button type="button"
-                                                                            class="btn btn-sm btn-outline-primary edit-timesheet-btn"
-                                                                            t-att-data-task-id="task.id"
-                                                                            t-att-data-timesheet-id="ts.id">
-                                                                        <i class="fa fa-edit"></i>
-                                                                    </button>
-                                                                    <form t-if="can_approve_timesheet_for_task or can_approve_timesheet"
-                                                                          t-attf-action="/portal/task/#{task.id}/timesheet/delete/#{ts.id}"
-                                                                          method="post" class="d-inline-block">
-                                                                        <input type="hidden" name="csrf_token"
-                                                                               t-att-value="request.csrf_token()"/>
-                                                                        <button type="submit"
-                                                                                class="btn btn-sm btn-outline-danger"
-                                                                                onclick="return confirm('Delete?')">
-                                                                            <i class="fa fa-trash"></i>
-                                                                        </button>
-                                                                    </form>
-                                                                </t>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </t>
-                                        </div>
-                                        <t t-if="ts_pager and ts_pager['total_pages'] &gt; 1">
-                                            <div class="load-more-wrapper">
-                                                <button class="btn btn-outline-primary btn-sm btn-load-more-timesheets"
-                                                        t-att-data-task-id="task.id"
-                                                        data-next-page="2">Load More
-                                                </button>
-                                            </div>
-                                        </t>
-                                    </t>
-                                    <t t-if="not (timesheets_show or timesheets)">
-                                        <div class="alert alert-warning" role="alert">
-                                            <i class="fa fa-info-circle me-2"></i>No timesheet entries yet.
-                                        </div>
-                                    </t>
-                                </div>
-                            </div>
+                            <!-- embed timesheets as in your current template (unchanged) -->
+                            <t t-call="z_project.portal_timesheet_embed">
+                                <t t-set="timesheets" t-value="timesheets"/>
+                                <t t-set="timesheets_show" t-value="timesheets_show"/>
+                                <t t-set="zeiten_map" t-value="zeiten_map"/>
+                                <t t-set="ts_pager" t-value="ts_pager"/>
+                                <t t-set="task" t-value="task"/>
+                                <t t-set="pending_requests" t-value="pending_requests"/>
+                                <t t-set="pending_new" t-value="pending_new"/>
+                                <t t-set="approved_requests" t-value="approved_requests"/>
+                                <t t-set="rejected_requests" t-value="rejected_requests"/>
+                                <t t-set="req_disp_map" t-value="req_disp_map"/>
+                                <t t-set="can_approve_timesheet_for_task" t-value="can_approve_timesheet_for_task"/>
+                                <t t-set="can_approve_timesheet" t-value="can_approve_timesheet"/>
+                            </t>
                         </div>
 
                         <!-- Subtasks -->
+                        <t t-set="show_extended" t-value="is_pm or is_admin"/>
                         <div class="tab-pane fade" id="subtasks" t-if="is_pm or is_head_engineer">
                             <div class="mt-3 mb-3">
                                 <t t-if="subtasks">
+                                    <!-- ================= DESKTOP ================= -->
                                     <div class="table-responsive d-none d-md-block">
-                                        <table class="table table-striped">
+                                        <!-- Versi EXTENDED hanya untuk PM/Admin -->
+                                        <table class="table table-striped align-middle" t-if="show_extended">
                                             <thead>
                                                 <tr>
-                                                    <th>Name</th>
-                                                    <th>Master</th>
-                                                    <th>Heads</th>
-                                                    <th>Members</th>
-                                                    <th>Status</th>
+                                                    <th style="min-width:190px;">Name</th>
+                                                    <th style="min-width:150px;">Master</th>
+                                                    <th style="min-width:150px;">Heads</th>
+                                                    <th style="min-width:160px;">Members</th>
+                                                    <th style="width:110px;">Budget (Mandays)</th>
+                                                    <th style="width:110px;">Actual (Mandays)</th>
+                                                    <th style="width:90px;">Bobot (%)</th>
+                                                    <th style="width:100px;">Progress (%)</th>
+                                                    <th style="width:120px;">Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -3127,9 +2805,7 @@
                                                             <t t-esc="st.name"/>
                                                         </td>
                                                         <td>
-                                                            <!--                                                            <t t-esc="st.z_master_task_id.z_name if st.z_master_task_id else ''"/>-->
-                                                            <t t-esc="st.z_display_master_task or ''"/>
-
+                                                            <t t-esc="st.z_display_master_task or (st.z_master_task_id and st.z_master_task_id.z_name) or ''"/>
                                                         </td>
                                                         <td>
                                                             <t t-foreach="st.z_head_assignes_ids" t-as="h">
@@ -3146,18 +2822,125 @@
                                                             </t>
                                                         </td>
                                                         <td>
-                                                            <t t-set="status_dict"
-                                                               t-value="dict(st._fields['z_project_task_state'].selection)"/>
-                                                            <span class="badge"
-                                                                  t-att-class="st.z_project_task_state == 'done' and 'bg-success' or (st.z_project_task_state == 'in_progress' and 'bg-primary') or (st.z_project_task_state == 'cancel' and 'bg-danger') or 'bg-light text-dark'">
-                                                                <t t-esc="status_dict.get(st.z_project_task_state)"/>
-                                                            </span>
+                                                            <t t-esc="'{:.2f}'.format(st.z_mandays_budget_entry or 0.0)"/>
+                                                        </td>
+                                                        <td>
+                                                            <t t-esc="'{:.2f}'.format(st.z_actual_budget_mandays or 0.0)"/>
+                                                        </td>
+                                                        <td>
+                                                            <t t-esc="'{:.2f}'.format(st.z_bobot_entry or 0.0)"/>
+                                                        </td>
+                                                        <td>
+                                                            <t t-esc="'{:.2f}'.format(st.z_progress_project or 0.0)"/>
+                                                        </td>
+                                                        <td>
+                                                            <t t-set="status" t-value="st.z_project_task_state or ''"/>
+                                                            <t t-if="status=='done'">
+                                                                <span class="badge bg-success">Done</span>
+                                                            </t>
+                                                            <t t-elif="status=='in_progress'">
+                                                                <span class="badge bg-primary">In Progress</span>
+                                                            </t>
+                                                            <t t-elif="status=='approved1'">
+                                                                <span class="badge bg-warning text-dark">Approved 1
+                                                                </span>
+                                                            </t>
+                                                            <t t-elif="status=='approved2'">
+                                                                <span class="badge bg-warning text-dark">Approved 2
+                                                                </span>
+                                                            </t>
+                                                            <t t-elif="status=='reject'">
+                                                                <span class="badge bg-danger">Rejected</span>
+                                                            </t>
+                                                            <t t-elif="status=='cancel'">
+                                                                <span class="badge bg-danger">Cancelled</span>
+                                                            </t>
+                                                            <t t-elif="status=='new'">
+                                                                <span class="badge bg-secondary">New</span>
+                                                            </t>
+                                                            <t t-else="">
+                                                                <span class="badge bg-light text-dark">
+                                                                    <t t-esc="status"/>
+                                                                </span>
+                                                            </t>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+
+                                        <!-- Versi SIMPLE untuk Head Engineer (bukan PM/Admin) -->
+                                        <table class="table table-striped align-middle" t-if="not show_extended">
+                                            <thead>
+                                                <tr>
+                                                    <th style="min-width:190px;">Name</th>
+                                                    <th style="min-width:150px;">Master</th>
+                                                    <th style="min-width:150px;">Heads</th>
+                                                    <th style="min-width:160px;">Members</th>
+                                                    <th style="width:120px;">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="subtasks" t-as="st">
+                                                    <tr>
+                                                        <td>
+                                                            <t t-esc="st.name"/>
+                                                        </td>
+                                                        <td>
+                                                            <t t-esc="st.z_display_master_task or (st.z_master_task_id and st.z_master_task_id.z_name) or ''"/>
+                                                        </td>
+                                                        <td>
+                                                            <t t-foreach="st.z_head_assignes_ids" t-as="h">
+                                                                <span class="badge bg-info me-1">
+                                                                    <t t-esc="h.name"/>
+                                                                </span>
+                                                            </t>
+                                                        </td>
+                                                        <td>
+                                                            <t t-foreach="st.z_member_assignes_ids" t-as="m">
+                                                                <span class="badge bg-secondary me-1">
+                                                                    <t t-esc="m.name"/>
+                                                                </span>
+                                                            </t>
+                                                        </td>
+                                                        <td>
+                                                            <t t-set="status" t-value="st.z_project_task_state or ''"/>
+                                                            <t t-if="status=='done'">
+                                                                <span class="badge bg-success">Done</span>
+                                                            </t>
+                                                            <t t-elif="status=='in_progress'">
+                                                                <span class="badge bg-primary">In Progress</span>
+                                                            </t>
+                                                            <t t-elif="status=='approved1'">
+                                                                <span class="badge bg-warning text-dark">Approved 1
+                                                                </span>
+                                                            </t>
+                                                            <t t-elif="status=='approved2'">
+                                                                <span class="badge bg-warning text-dark">Approved 2
+                                                                </span>
+                                                            </t>
+                                                            <t t-elif="status=='reject'">
+                                                                <span class="badge bg-danger">Rejected</span>
+                                                            </t>
+                                                            <t t-elif="status=='cancel'">
+                                                                <span class="badge bg-danger">Cancelled</span>
+                                                            </t>
+                                                            <t t-elif="status=='new'">
+                                                                <span class="badge bg-secondary">New</span>
+                                                            </t>
+                                                            <t t-else="">
+                                                                <span class="badge bg-light text-dark">
+                                                                    <t t-esc="status"/>
+                                                                </span>
+                                                            </t>
                                                         </td>
                                                     </tr>
                                                 </t>
                                             </tbody>
                                         </table>
                                     </div>
+
+                                    <!-- ================= MOBILE ================= -->
                                     <div class="d-md-none">
                                         <div class="row g-3">
                                             <t t-foreach="subtasks" t-as="st">
@@ -3167,29 +2950,82 @@
                                                             <h6 class="mb-1">
                                                                 <t t-esc="st.name"/>
                                                             </h6>
-                                                            <t t-set="status_dict"
-                                                               t-value="dict(st._fields['z_project_task_state'].selection)"/>
+                                                            <t t-set="status" t-value="st.z_project_task_state or ''"/>
                                                             <div class="mb-2">
-                                                                <span class="badge"
-                                                                      t-att-class="st.z_project_task_state == 'done' and 'bg-success' or (st.z_project_task_state == 'in_progress' and 'bg-primary') or (st.z_project_task_state == 'cancel' and 'bg-danger') or 'bg-light text-dark'">
-                                                                    <t t-esc="status_dict.get(st.z_project_task_state)"/>
-                                                                </span>
+                                                                <t t-if="status=='done'">
+                                                                    <span class="badge bg-success">Done</span>
+                                                                </t>
+                                                                <t t-elif="status=='in_progress'">
+                                                                    <span class="badge bg-primary">In Progress</span>
+                                                                </t>
+                                                                <t t-elif="status=='approved1'">
+                                                                    <span class="badge bg-warning text-dark">Approved
+                                                                        1
+                                                                    </span>
+                                                                </t>
+                                                                <t t-elif="status=='approved2'">
+                                                                    <span class="badge bg-warning text-dark">Approved
+                                                                        2
+                                                                    </span>
+                                                                </t>
+                                                                <t t-elif="status=='reject'">
+                                                                    <span class="badge bg-danger">Rejected</span>
+                                                                </t>
+                                                                <t t-elif="status=='cancel'">
+                                                                    <span class="badge bg-danger">Cancelled</span>
+                                                                </t>
+                                                                <t t-elif="status=='new'">
+                                                                    <span class="badge bg-secondary">New</span>
+                                                                </t>
+                                                                <t t-else="">
+                                                                    <span class="badge bg-light text-dark">
+                                                                        <t t-esc="status"/>
+                                                                    </span>
+                                                                </t>
                                                             </div>
+
                                                             <t t-if="st.z_master_task_id">
                                                                 <div class="mb-2">
-                                                                    <strong>Master Task:</strong>
+                                                                    <strong>Master:</strong>
                                                                     <br/>
                                                                     <span class="text-muted">
                                                                         <t t-esc="st.z_master_task_id.z_name"/>
                                                                     </span>
                                                                 </div>
                                                             </t>
+
+                                                            <!-- Hanya tampilkan metric jika show_extended -->
+                                                            <t t-if="show_extended">
+                                                                <div class="row g-2 small mb-2">
+                                                                    <div class="col-6">
+                                                                        <strong>Budget (Mandays)</strong>
+                                                                        <br/>
+                                                                        <t t-esc="'{:.2f}'.format(st.z_mandays_budget_entry or 0.0)"/>
+                                                                    </div>
+                                                                    <div class="col-6">
+                                                                        <strong>Actual (Mandays)</strong>
+                                                                        <br/>
+                                                                        <t t-esc="'{:.2f}'.format(st.z_actual_budget_mandays or 0.0)"/>
+                                                                    </div>
+                                                                    <div class="col-6">
+                                                                        <strong>Bobot (%)</strong>
+                                                                        <br/>
+                                                                        <t t-esc="'{:.2f}'.format(st.z_bobot_entry or 0.0)"/>
+                                                                    </div>
+                                                                    <div class="col-6">
+                                                                        <strong>Progress (%)</strong>
+                                                                        <br/>
+                                                                        <t t-esc="'{:.2f}'.format(st.z_progress_project or 0.0)"/>
+                                                                    </div>
+                                                                </div>
+                                                            </t>
+
                                                             <t t-if="st.z_head_assignes_ids">
                                                                 <div class="mb-2">
-                                                                    <strong>Head Assignees:</strong>
+                                                                    <strong>Heads:</strong>
                                                                     <br/>
                                                                     <t t-foreach="st.z_head_assignes_ids" t-as="h">
-                                                                        <span class="badge bg-info me-1">
+                                                                        <span class="badge bg-info me-1 mb-1">
                                                                             <t t-esc="h.name"/>
                                                                         </span>
                                                                     </t>
@@ -3200,7 +3036,7 @@
                                                                     <strong>Members:</strong>
                                                                     <br/>
                                                                     <t t-foreach="st.z_member_assignes_ids" t-as="m">
-                                                                        <span class="badge bg-secondary me-1">
+                                                                        <span class="badge bg-secondary me-1 mb-1">
                                                                             <t t-esc="m.name"/>
                                                                         </span>
                                                                     </t>
@@ -3222,6 +3058,7 @@
                         <!-- Invoice Plan -->
                         <div class="tab-pane fade" id="invoice-plan"
                              t-if="(is_pm or is_head_engineer or is_support) and not is_engineer">
+                            <!-- content invoice plan (unchanged) -->
                             <div class="mt-3 mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0">Invoice Plan</h5>
@@ -3232,6 +3069,7 @@
                                     </button>
                                 </div>
                                 <t t-if="invoice_plans_show or task.z_invoice_plan_ids">
+                                    <!-- desktop and mobile tables (unchanged from your file) -->
                                     <div class="table-responsive d-none d-md-block">
                                         <table class="table table-striped">
                                             <thead>
@@ -3288,7 +3126,7 @@
                                         </table>
                                     </div>
 
-                                    <!-- Mobile -->
+                                    <!-- mobile cards (unchanged) -->
                                     <div class="d-md-none">
                                         <div class="row g-3" id="invoice_plan_card_container">
                                             <t t-foreach="invoice_plans_show or task.z_invoice_plan_ids" t-as="inv">
@@ -3368,8 +3206,101 @@
                         </div>
                     </div>
                 </form>
-            </t>
 
+                <!-- Hidden workflow forms (DI LUAR edit_task_form) -->
+                <form id="wf_confirm_form" t-attf-action="/portal/task/#{task.id}" method="post" class="d-none">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="_workflow" value="1"/>
+                </form>
+
+                <form id="wf_reject_form" t-attf-action="/portal/task/#{task.id}" method="post" class="d-none">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="_workflow" value="1"/>
+                    <input type="hidden" name="function" value="reject"/>
+                    <input type="hidden" name="reason" id="wf_reject_reason"/>
+                </form>
+
+                <!-- JS override khusus mode edit (inline) -->
+                <script type="text/javascript">
+                    <![CDATA[
+                      (function($){
+                        // 1) Save: scope hanya di dalam edit form
+                        $(document).off('submit', '#edit_task_form').on('submit', '#edit_task_form', function(){
+                          $(this).find('input[name="_workflow"], input[name="function"]').each(function(){
+                            $(this).prop('disabled', true).attr('data-disabled-by','edit-form');
+                          });
+                        });
+
+                        // 2) Reject task: WAJIB reason
+                        $(document).off('click', '.wf-reject-btn').on('click', '.wf-reject-btn', function(e){
+                          let reason = prompt('Masukkan alasan reject (WAJIB):');
+                          if (reason === null) {
+                            // User cancel → batalkan submit
+                            e.preventDefault();
+                            return false;
+                          }
+                          reason = reason.trim();
+                          if (!reason) {
+                            alert('Alasan reject wajib diisi.');
+                            e.preventDefault();
+                            return false;
+                          }
+                          $('#wf_reject_reason').val(reason);
+                          // biarkan default submit lanjut
+                        });
+
+                        // Guard tambahan: kalau sampai submit tanpa reason, blok
+                        $(document).off('submit', '#wf_reject_form').on('submit', '#wf_reject_form', function(e){
+                          const val = ($('#wf_reject_reason').val() || '').trim();
+                          if(!val){
+                            e.preventDefault();
+                            alert('Alasan reject wajib diisi.');
+                            return false;
+                          }
+                        });
+
+                        // 3) Intercept workflow confirm (auto-stop timer)
+                        $(document).off('submit', 'form:has(input[name="function"][value="confirm"])');
+                        $(document).off('submit', '#wf_confirm_form').on('submit', '#wf_confirm_form', function(e){
+                          const $editForm = $('#edit_task_form');
+                          if(!$editForm.length) return;
+                          const isEngineer    = ($editForm.data('is-engineer') === 1 || $editForm.data('is-engineer') === '1');
+                          const isMaintenance = ($editForm.data('is-maintenance') === 1 || $editForm.data('is-maintenance') === '1');
+                          const $timerBadge   = $('#runningTimerBadge');
+                          const badgeVisible  = ($timerBadge.length && !$timerBadge.hasClass('d-none'));
+                          const pausedAttr    = $timerBadge.data('paused');
+                          const pausedNow     = (pausedAttr === true || pausedAttr === 'true');
+                          const timerRunning  = badgeVisible && !pausedNow;
+                          if(isEngineer && isMaintenance && timerRunning){
+                            e.preventDefault();
+                            window.pendingConfirmForm = this;
+                            $('#timerStopModal').modal('show');
+                            return false;
+                          }
+                        });
+
+                        // 4) Single handler Calculate Bobot
+                        $(document).off('click', '.btn-calculate-bobot').on('click', '.btn-calculate-bobot', function(){
+                          const taskId = $(this).data('task-id');
+                          const csrf = $('input[name="csrf_token"]').val() || '';
+                          const $btn = $(this).prop('disabled', true).addClass('disabled');
+                          $.post(`/portal/task/${taskId}/calculate-bobot`, { csrf_token: csrf }, function(r){
+                            if(r && r.success){
+                              alert('Perhitungan bobot berhasil.');
+                              location.reload();
+                            }else{
+                              alert(r && r.error ? r.error : 'Perhitungan bobot gagal.');
+                            }
+                          }, 'json').always(function(){
+                            $btn.prop('disabled', false).removeClass('disabled');
+                          });
+                        });
+
+                      })(jQuery);
+                    ]]>
+                </script>
+
+            </t>
             <!-- ================== LIST MODE ================== -->
             <t t-if="not kw.get('mode') and not task">
                 <div class="o_portal_tasks_header row mb-4 d-flex align-items-center">
@@ -3467,12 +3398,12 @@
                                style="table-layout:fixed;">
                             <thead>
                                 <tr>
-                                    <th style="width:150px;">Task Code</th>
-                                    <th style="width:160px;">Name of Task</th>
-                                    <th style="width:160px;">Name of Project</th>
-                                    <th style="width:110px;">Project</th>
-                                    <th style="width:110px;">Customer</th>
-                                    <th style="width:90px;">Status</th>
+                                    <th style="width:250px;">Task Code</th>
+                                    <th style="width:130px;">Name of Task</th>
+                                    <th style="width:180px;">Name of Project</th>
+                                    <th style="width:100px;">Project</th>
+                                    <th style="width:100px;">Customer</th>
+                                    <th style="width:100px;">Status</th>
                                     <th class="w-head">Head(s)</th>
                                     <th class="w-member">Member(s)</th>
                                     <th style="width:100px;">Tech</th>
@@ -3494,7 +3425,18 @@
                                                         t-att-data-group-id="'grp_'+str(grp.get('group_index'))">
                                                     <i class="fa fa-caret-right"></i>
                                                 </button>
-                                                <span t-esc="grp.get('group_value')"/>
+
+                                                <t t-if="groupby == 'project_id'">
+                                                    <span t-esc="grp.get('group_value')"/>
+                                                    <t t-if="grp.get('name_of_project') and grp.get('name_of_project') != grp.get('group_value')">
+                                                        <small class="text-muted ms-1">
+                                                            (<t t-esc="grp.get('name_of_project')"/>)
+                                                        </small>
+                                                    </t>
+                                                </t>
+                                                <t t-else="">
+                                                    <span t-esc="grp.get('group_value')"/>
+                                                </t>
                                                 (<t t-esc="grp.get('pager').get('total')"/>)
 
                                                 <!-- Pager per group -->
@@ -3745,12 +3687,17 @@
                                 <div class="mb-3">
                                     <label class="form-label">End Date</label>
                                     <input type="text" name="end_date" class="form-control dt-24" required="required"/>
-                                    <div class="form-text" id="request_hours_hint"></div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Description</label>
                                     <textarea name="description" class="form-control" rows="3" required="required"
                                               placeholder="Describe your activity..."></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Attachments (optional)</label>
+                                    <input type="file" name="attachments" class="form-control" multiple="multiple"
+                                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"/>
+                                    <div class="form-text">You can attach multiple files.</div>
                                 </div>
                                 <div class="row">
                                     <div class="col-6">
@@ -3891,6 +3838,12 @@
                                     <label class="form-label">Description (New)</label>
                                     <textarea class="form-control" id="timesheet_description" name="description"
                                               rows="3" required="1"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Attachments (optional)</label>
+                                    <input type="file" name="attachments" id="timesheet_attachments"
+                                           class="form-control"
+                                           multiple="multiple" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"/>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Employee</label>
